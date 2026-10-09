@@ -100,15 +100,15 @@ form.addEventListener('submit', async (event) => {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not submit your request.');
+    if (type === 'diamonds') {
+      form.querySelectorAll('input, button').forEach((control) => { control.disabled = true; });
+      feedback.textContent = 'Your diamond order is pending admin review. Check My Accounts for status updates.';
+      feedback.hidden = false;
+      return;
+    }
     form.hidden = true;
     paymentSummary.hidden = true;
-    if (type === 'diamonds') {
-      successPanel.querySelector('h3').textContent = 'YOUR DIAMOND ORDER IS PENDING APPROVAL.';
-      successPanel.querySelector('a').href = '/pages/myaccounts.html';
-      successPanel.querySelector('a').textContent = 'VIEW MY ORDERS →';
-    } else {
-      successPanel.querySelector('a').href = `/pages/${type}.html`;
-    }
+    successPanel.querySelector('a').href = `/pages/${type}.html`;
     successPanel.hidden = false;
   } catch (error) {
     showMessage(error.message || 'Could not submit your request.');
