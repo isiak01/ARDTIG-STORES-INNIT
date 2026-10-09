@@ -114,11 +114,11 @@ function ensureInnerHeader() {
   const nav = document.createElement('nav');
   nav.className = 'primary-nav';
   nav.setAttribute('aria-label', 'Main navigation');
-  nav.innerHTML = '<a href="/pages/freefire.html">FREE FIRE</a><a href="/pages/diamonds.html">DIAMONDS</a><a href="/pages/cod.html">COD ACCOUNTS</a><a href="/pages/efootball.html">E FOOTBALL</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><div class="auth-links" id="header-auth-controls"><a href="/pages/auth.html">LOG IN</a><a href="/pages/auth.html">SIGN UP</a></div><div class="member-links" id="member-links" hidden></div><button class="install-button" id="install-app" type="button" hidden>INSTALL <span aria-hidden="true">↓</span></button>';
+  nav.innerHTML = '<a href="/pages/freefire.html">FREE FIRE</a><a href="/pages/diamonds.html">DIAMONDS</a><a href="/pages/cod.html">COD ACCOUNTS</a><a href="/pages/efootball.html">E FOOTBALL</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button><div class="auth-links" id="header-auth-controls"><a href="/pages/auth.html">LOG IN</a><a href="/pages/auth.html">SIGN UP</a></div><div class="member-links" id="member-links" hidden></div><button class="install-button" id="install-app" type="button" hidden>INSTALL <span aria-hidden="true">↓</span></button>';
   header.insertBefore(nav, back);
   const actions = document.createElement('div');
   actions.className = 'header-actions';
-  actions.innerHTML = '<button class="icon-button theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme"><span aria-hidden="true">☼</span></button><button class="icon-button notification-button" type="button" aria-label="Notifications" title="Notifications"><span aria-hidden="true">🔔</span><i class="notification-count" hidden>0</i></button><button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false"><i></i><i></i><i></i></button>';
+  actions.innerHTML = '<button class="icon-button notification-button" type="button" aria-label="Notifications" title="Notifications"><span aria-hidden="true">🔔</span><i class="notification-count" hidden>0</i></button><button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false"><i></i><i></i><i></i></button>';
   header.append(actions);
   const panel = document.createElement('section');
   panel.className = 'notifications-panel';
@@ -130,13 +130,13 @@ function ensureInnerHeader() {
 }
 
 function ensureRoleNavigation(nav) {
-  nav.querySelectorAll(':scope > a').forEach((link) => link.setAttribute('data-user-nav', ''));
+  nav.querySelectorAll(':scope > a, :scope > .theme-toggle').forEach((link) => link.setAttribute('data-user-nav', ''));
   if (nav.querySelector('.admin-nav-links')) return;
   const controls = nav.querySelector('.auth-links');
   const adminNav = document.createElement('div');
   adminNav.className = 'admin-nav-links';
   adminNav.hidden = true;
-  adminNav.innerHTML = '<a href="/pages/admin/analytics.html">DASHBOARD</a><a href="/pages/admin/requests.html">ORDERS</a><a href="/pages/admin/post-freefire.html">MANAGE ACCOUNTS</a><a href="/pages/admin/host-tournament.html">HOST TOURNAMENT</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a>';
+  adminNav.innerHTML = '<a href="/pages/admin/analytics.html">DASHBOARD</a><a href="/pages/admin/requests.html">ORDERS</a><a href="/pages/admin/post-freefire.html">MANAGE ACCOUNTS</a><a href="/pages/admin/host-tournament.html">HOST TOURNAMENT</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button>';
   nav.insertBefore(adminNav, controls);
 }
 
@@ -147,8 +147,8 @@ function ensureWalletWidget(actions) {
     wallet.className = 'wallet-widget';
     wallet.hidden = true;
     wallet.innerHTML = '<span id="walletBalance">₦0.00</span><button type="button" id="wallet-topup" aria-label="Top up ARDTIG balance" title="Top up wallet">+</button>';
-    const themeToggle = actions.querySelector('.theme-toggle');
-    actions.insertBefore(wallet, themeToggle);
+    const notificationButton = actions.querySelector('.notification-button');
+    actions.insertBefore(wallet, notificationButton);
     wallet.querySelector('#wallet-topup').addEventListener('click', () => { location.assign('/topup.html'); });
   }
   return wallet;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ardtig-shell-v11';
+const CACHE_NAME = 'ardtig-shell-v12';
 const SHELL_FILES = [
   '/', '/index.html', '/css/site.css', '/css/pages.css', '/css/commerce.css', '/css/account.css',
   '/js/main.js', '/js/page-shell.js', '/js/theme.js', '/js/navbar.js', '/js/store.js', '/js/category.js', '/js/sharing.js', '/js/firebase.js', '/js/pwa.js',

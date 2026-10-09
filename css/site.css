@@ -33,10 +33,14 @@ html,body{max-width:100%;overflow-x:clip}
 @media(max-width:1000px){.primary-nav .admin-nav-links{gap:8px}.primary-nav .admin-nav-links a{font-size:8px}}
 @media(max-width:760px){.primary-nav .admin-nav-links:not([hidden]){display:flex;flex-direction:column;align-items:stretch;gap:0;width:100%}}
 @media(min-width:761px) and (max-width:1150px){.site-header{gap:12px}.primary-nav{gap:7px}.primary-nav>a,.primary-nav .admin-nav-links a{font-size:8px;letter-spacing:.2px}.primary-nav .admin-nav-links{gap:6px}}
-.wallet-widget{display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid #333;border-radius:20px;background:#1a1a1a;color:#fff;font-size:11px;font-weight:700;white-space:nowrap}
+.primary-nav .theme-toggle{flex:0 0 34px;width:34px;height:34px;padding:0;border-color:#444;color:var(--header-text);background:transparent}
+.primary-nav .theme-toggle[hidden]{display:none}
+.primary-nav .theme-toggle:hover{border-color:#ff514b;color:#ff514b}
+.wallet-widget{display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid #333;border-radius:20px;background:#1a1a1a;color:#fff;font-size:10px;font-weight:700;white-space:nowrap}
 .wallet-widget[hidden]{display:none}
-.wallet-widget button{width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:#f00;color:#fff;font-size:22px;line-height:1;cursor:pointer}
-@media(max-width:400px){.wallet-widget{gap:5px;padding:4px 7px;font-size:9px}}
+.wallet-widget button{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:#f00;color:#fff;font-size:20px;line-height:1;cursor:pointer}
+@media(max-width:760px){.primary-nav .theme-toggle{align-self:flex-start;margin:9px 0 4px}}
+@media(max-width:400px){.wallet-widget{gap:4px;padding:3px 6px;font-size:9px}}
 .banned-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:#111;color:#fff}
 .banned-panel{width:min(650px,100%);padding:clamp(24px,6vw,56px);border:1px solid #f00;background:#1a1a1a;text-align:center}
 .banned-panel h1{margin:0;color:#f00;font:900 clamp(36px,8vw,64px)/1 var(--display)}
