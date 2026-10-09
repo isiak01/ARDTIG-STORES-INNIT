@@ -59,9 +59,8 @@ service cloud.firestore {
         && request.resource.data.totalTopups == 0
         && request.resource.data.banned == false
         && request.resource.data.keys().hasOnly(['uid', 'email', 'username', 'photoURL', 'role', 'walletBalance', 'totalTopups', 'banned', 'createdAt']);
-      allow update: if isOwner(userId)
-        && !isBanned()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL', 'username']);
+      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalance', 'totalTopups', 'banned', 'banReason']))
+        || (isOwner(userId) && !isBanned() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL', 'username']));
       allow delete: if isAdmin();
     }
 
@@ -130,8 +129,22 @@ service cloud.firestore {
     }
 
     match /topupRequests/{requestId} {
-      allow get, list: if isAdmin();
-      allow create, update, delete: if false;
+      allow get: if isAdmin() || (signedIn() && !isBanned() && resource.data.uid == request.auth.uid);
+      allow list: if isAdmin() || (signedIn() && !isBanned() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && !isBanned() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.amount is int && request.resource.data.amount > 0;
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt']);
+      allow delete: if isAdmin();
+    }
+
+    match /transfers/{transferId} {
+      allow get, list: if isAdmin() || (signedIn() && !isBanned() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid));
+      allow create: if signedIn() && !isBanned() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.status == 'completed' && request.resource.data.amount is int && request.resource.data.amount >= 100 && request.resource.data.fee == 100 && request.resource.data.totalDeducted == request.resource.data.amount + 100;
+      allow update, delete: if isAdmin();
+    }
+
+    match /accountLogs/{logId} {
+      allow get, list: if isAdmin() || (signedIn() && !isBanned() && resource.data.uid == request.auth.uid && resource.data.status == 'approved');
+      allow create, update, delete: if isAdmin();
     }
 
     match /votes/{categoryId} {

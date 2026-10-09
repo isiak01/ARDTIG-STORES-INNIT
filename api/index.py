@@ -108,6 +108,16 @@ def caller_is_admin(db, user_id):
     return profile.exists and (profile.to_dict() or {}).get("role") == "admin"
 
 
+def public_user_summary(user_id, profile):
+    return {
+        "uid": user_id,
+        "username": profile.get("username", "PLAYER"),
+        "photoURL": profile.get("photoURL", ""),
+        "role": profile.get("role", "user"),
+        "banned": profile.get("banned") is True,
+    }
+
+
 @app.get("/api/config")
 def public_config():
     project_id = os.getenv("FIREBASE_PROJECT_ID", "")
@@ -388,6 +398,121 @@ def sync_member_directory():
         return jsonify(error="The member directory could not be refreshed."), 500
 
 
+@app.get("/api/user-search")
+@authenticated
+def search_users_for_transfer():
+    query_value = (request.args.get("q", "") or "").strip()
+    if len(query_value) < 2:
+        return jsonify(users=[]), 200
+    try:
+        db = database()
+        matches = []
+        current_user = request.user_claims["uid"]
+        for profile_snapshot in db.collection("users").stream():
+            profile = profile_snapshot.to_dict() or {}
+            username = str(profile.get("username", "")).strip()
+            if not username or profile_snapshot.id == current_user:
+                continue
+            if query_value.casefold() in username.casefold():
+                matches.append(public_user_summary(profile_snapshot.id, profile))
+        matches.sort(key=lambda item: item["username"].casefold())
+        return jsonify(users=matches[:12]), 200
+    except Exception:
+        app.logger.exception("User search for transfers failed")
+        return jsonify(error="Users could not be searched."), 500
+
+
+@app.post("/api/send-money")
+@authenticated
+def send_money_between_users():
+    payload = request.get_json(silent=True) or {}
+    receiver_id = payload.get("toUid")
+    amount = payload.get("amount")
+    if not isinstance(receiver_id, str) or not receiver_id.strip():
+        return jsonify(error="Choose a valid member to send money to."), 400
+    if not isinstance(amount, (int, float)) or isinstance(amount, bool) or float(amount) < 100 or not float(amount).is_integer():
+        return jsonify(error="Enter an amount of at least ₦100."), 400
+
+    sender_id = request.user_claims["uid"]
+    if receiver_id == sender_id:
+        return jsonify(error="You cannot send money to yourself."), 400
+
+    amount = int(amount)
+    fee = 100
+    total = amount + fee
+    try:
+        db = database()
+        sender_ref = db.collection("users").document(sender_id)
+        receiver_ref = db.collection("users").document(receiver_id)
+
+        @firestore.transactional
+        def transfer_funds(transaction):
+            sender_snapshot = transaction.get(sender_ref)
+            receiver_snapshot = transaction.get(receiver_ref)
+            if not sender_snapshot.exists or not receiver_snapshot.exists:
+                return "missing"
+
+            sender = sender_snapshot.to_dict() or {}
+            receiver = receiver_snapshot.to_dict() or {}
+            if sender.get("banned") is True or receiver.get("banned") is True:
+                return "banned"
+
+            sender_balance = sender.get("walletBalance", 0)
+            receiver_balance = receiver.get("walletBalance", 0)
+            if not isinstance(sender_balance, (int, float)) or isinstance(sender_balance, bool):
+                sender_balance = 0
+            if not isinstance(receiver_balance, (int, float)) or isinstance(receiver_balance, bool):
+                receiver_balance = 0
+            if sender_balance < total:
+                return "insufficient"
+
+            new_sender_balance = sender_balance - total
+            new_receiver_balance = receiver_balance + amount
+            transaction.update(sender_ref, {"walletBalance": new_sender_balance})
+            transaction.update(receiver_ref, {"walletBalance": new_receiver_balance})
+
+            transfer_ref = db.collection("transfers").document()
+            transaction.set(transfer_ref, {
+                "fromUid": sender_id,
+                "fromUsername": sender.get("username", "PLAYER"),
+                "toUid": receiver_id,
+                "toUsername": receiver.get("username", "PLAYER"),
+                "amount": amount,
+                "fee": fee,
+                "totalDeducted": total,
+                "status": "completed",
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            })
+
+            sender_notification = db.collection("notifications").document(sender_id).collection("items").document()
+            receiver_notification = db.collection("notifications").document(receiver_id).collection("items").document()
+            transaction.set(sender_notification, {
+                "title": "Wallet transfer sent",
+                "message": f"You sent ₦{amount:,} to {receiver.get('username', 'PLAYER')}. Fee: ₦{fee:,}. New balance: ₦{new_sender_balance:,.2f}.",
+                "read": False,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            })
+            transaction.set(receiver_notification, {
+                "title": "Wallet transfer received",
+                "message": f"{sender.get('username', 'PLAYER')} sent you ₦{amount:,} ARDTIG balance! It has been added to your wallet.",
+                "read": False,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            })
+            return {"newBalance": new_sender_balance}
+
+        result = transfer_funds(db.transaction())
+        if result == "missing":
+            return jsonify(error="The sender or recipient account could not be found."), 404
+        if result == "banned":
+            return jsonify(error="This transfer cannot be completed because one of the accounts is banned."), 403
+        if result == "insufficient":
+            return jsonify(error=f"Insufficient balance. You need ₦{total:,.2f} but your wallet is short."), 409
+        return jsonify(status="completed", amount=amount, fee=fee, totalDeducted=total, newBalance=result["newBalance"]), 200
+    except Exception:
+        app.logger.exception("Wallet transfer failed")
+        return jsonify(error="Transfer failed, please try again."), 500
+
+
 @app.post("/api/ban-member")
 @authenticated
 def ban_member():
@@ -589,6 +714,7 @@ def purchase_with_wallet():
         purchase_id = f"{user_id}_{account_id}"
         purchase_ref = db.collection("user_purchases").document(purchase_id)
         user_secret_ref = db.collection("account_secrets").document(purchase_id)
+        account_log_ref = db.collection("accountLogs").document(purchase_id)
         sold_ref = db.collection("sold_accounts").document(account_id)
         notification_ref = db.collection("notifications").document(user_id).collection("items").document()
 
@@ -626,7 +752,10 @@ def purchase_with_wallet():
             if account_type != "diamonds":
                 transaction.set(purchase_ref, {"userId": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "createdAt": firestore.SERVER_TIMESTAMP})
                 transaction.set(user_secret_ref, {**secret_data, "uid": user_id, "accountId": account_id})
+                transaction.set(account_log_ref, {"uid": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "createdAt": firestore.SERVER_TIMESTAMP, **secret_data})
                 transaction.set(sold_ref, {**account, "id": account_id, "accountType": account_type, "status": "sold", "soldAt": firestore.SERVER_TIMESTAMP})
+            else:
+                transaction.set(account_log_ref, {"uid": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "gameName": game_name.strip()[:80], "gameUid": player_uid.strip()[:40], "createdAt": firestore.SERVER_TIMESTAMP})
             transaction.set(notification_ref, {"title": "Wallet purchase approved", "message": "Your wallet payment was successful. Go to My Accounts to view your account details.", "read": False, "createdAt": firestore.SERVER_TIMESTAMP})
             return {"requestId": payment_ref.id, "walletBalance": balance - price}
 
@@ -814,6 +943,8 @@ def vercel_api_dispatch():
         "wallet-purchase": ("POST", purchase_with_wallet),
         "member-sync": ("POST", sync_member_profile),
         "member-directory-sync": ("POST", sync_member_directory),
+        "user-search": ("GET", search_users_for_transfer),
+        "send-money": ("POST", send_money_between_users),
         "ban-member": ("POST", ban_member),
         "leaderboard": ("GET", purchase_leaderboard),
         "tournament": ("POST", create_tournament),

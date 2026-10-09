@@ -15,6 +15,11 @@ if (access) {
   topupsTab.dataset.requestType = 'topups';
   topupsTab.innerHTML = 'TOPUPS <b class="tab-count">0</b>';
   document.querySelector('.admin-tabs').append(topupsTab);
+  const transfersTab = document.createElement('button');
+  transfersTab.className = 'admin-tab';
+  transfersTab.dataset.requestType = 'transfers';
+  transfersTab.innerHTML = 'TRANSFERS <b class="tab-count">0</b>';
+  document.querySelector('.admin-tabs').append(transfersTab);
   document.querySelectorAll('[data-request-type]').forEach((tab) => tab.addEventListener('click', () => {
     activeType = tab.dataset.requestType;
     document.querySelectorAll('[data-request-type]').forEach((item) => item.classList.toggle('is-active', item === tab));
@@ -32,10 +37,15 @@ if (access) {
 
 async function loadPendingCounts() {
   const { db, collection, query, where, getDocs } = access.firebase;
-  await Promise.all([...Object.keys(collections), 'topups'].map(async (type) => {
+  await Promise.all([...Object.keys(collections), 'topups', 'transfers'].map(async (type) => {
     if (type === 'topups') {
       const snapshot = await getDocs(query(collection(db, 'topupRequests'), where('status', '==', 'pending')));
       document.querySelector('[data-request-type="topups"] .tab-count').textContent = String(snapshot.size);
+      return;
+    }
+    if (type === 'transfers') {
+      const snapshot = await getDocs(collection(db, 'transfers'));
+      document.querySelector('[data-request-type="transfers"] .tab-count').textContent = String(snapshot.size);
       return;
     }
     const snapshot = await getDocs(query(collection(db, 'payment_requests'), where('accountType', '==', type), where('status', '==', 'pending')));
@@ -46,6 +56,7 @@ async function loadPendingCounts() {
 async function loadRequests() {
   if (!access) return;
   if (activeType === 'topups') return loadTopupRequests();
+  if (activeType === 'transfers') return loadTransfers();
   panel.innerHTML = '<p class="loading-state">LOADING REQUESTS…</p>';
   try {
     const { db, collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp } = access.firebase;
@@ -82,6 +93,23 @@ async function loadTopupRequests() {
   } catch (error) {
     message.hidden = false;
     message.textContent = error.message || 'Top-up requests could not load.';
+  }
+}
+
+async function loadTransfers() {
+  panel.innerHTML = '<p class="loading-state">LOADING TRANSFERS…</p>';
+  try {
+    const { db, collection, getDocs, query, orderBy } = access.firebase;
+    const snapshot = await getDocs(query(collection(db, 'transfers'), orderBy('createdAt', 'desc')));
+    if (snapshot.empty) {
+      panel.innerHTML = '<div class="empty-market"><div><span class="stock-label"><i></i> ACCOUNT LEDGER</span><h3>NO TRANSFERS YET.</h3></div></div>';
+      return;
+    }
+    panel.replaceChildren();
+    snapshot.docs.forEach((item) => panel.append(createTransferCard(item.data(), item.id)));
+  } catch (error) {
+    message.hidden = false;
+    message.textContent = error.message || 'Transfers could not load.';
   }
 }
 
@@ -202,6 +230,14 @@ async function handleAction(action, requestId) {
     batch.set(doc(db, 'account_secrets', purchaseId), {
       ...secretSnapshot.data(), uid: request.userId, accountId: request.accountId,
     });
+    batch.set(doc(db, 'accountLogs', purchaseId), {
+      uid: request.userId,
+      accountId: request.accountId,
+      accountType: request.accountType,
+      status: 'approved',
+      createdAt: serverTimestamp(),
+      ...secretSnapshot.data(),
+    });
     batch.update(accountRef, { status: 'sold' });
     batch.set(doc(db, 'sold_accounts', request.accountId), {
       ...account,
@@ -235,6 +271,24 @@ async function addNotification(userId, title, text) {
   const { db, collection, addDoc, serverTimestamp } = access.firebase;
   await addDoc(collection(db, 'notifications', userId, 'items'), { title, message: text, read: false, createdAt: serverTimestamp() });
 }
+function createTransferCard(transfer, id) {
+  const card = document.createElement('article');
+  card.className = 'request-card';
+  card.innerHTML = `
+    <div class="request-user">
+      <div><b>${safeText(transfer.fromUsername || 'PLAYER')}</b><small>FROM</small></div>
+    </div>
+    <dl class="detail-list">
+      <div><dt>TO</dt><dd>${safeText(transfer.toUsername || 'PLAYER')}</dd></div>
+      <div><dt>AMOUNT</dt><dd>₦${Number(transfer.amount || 0).toLocaleString('en-NG')}</dd></div>
+      <div><dt>FEE</dt><dd>₦${Number(transfer.fee || 0).toLocaleString('en-NG')}</dd></div>
+      <div><dt>TIME</dt><dd>${formatDate(transfer.createdAt?.toDate?.())}</dd></div>
+    </dl>
+    <div class="request-links"><span class="purchase-status status-approved">${safeText((transfer.status || 'completed').toUpperCase())}</span></div>
+  `;
+  return card;
+}
+
 function safeText(value) { const node = document.createElement('span'); node.textContent = String(value ?? ''); return node.innerHTML; }
 function safeAttribute(value) { return safeText(value).replaceAll('"', '&quot;'); }
 function dateValue(value) { return typeof value?.toMillis === 'function' ? value.toMillis() : value instanceof Date ? value.getTime() : Date.parse(value || '') || 0; }

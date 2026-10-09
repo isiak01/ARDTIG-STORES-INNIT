@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Help A Friend | ARDTIG STORES</title>
+  <link rel="icon" href="/logo.png" type="image/png">
+  <link rel="stylesheet" href="/css/pages.css">
+  <link rel="stylesheet" href="/css/commerce.css">
+  <script type="module" src="/js/help-a-friend.js"></script>
+  <script type="module" src="/js/page-shell.js"></script>
+  <style>
+    .help-shell { max-width: 980px; }
+    .help-panel { margin-top: 24px; padding: 24px; background: var(--surface); border: 1px solid var(--line); }
+    .help-search { display: flex; align-items: center; gap: 12px; background: var(--paper); border: 1px solid var(--line); padding: 14px 16px; }
+    .help-search input { flex: 1; border: 0; background: transparent; color: var(--ink); font: inherit; }
+    .help-search input:focus { outline: none; }
+    .help-results { display: grid; gap: 14px; margin-top: 18px; }
+    .friend-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); background: var(--paper); }
+    .friend-user { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .friend-avatar { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; background: #171717; border: 1px solid var(--line); display: grid; place-items: center; }
+    .friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .friend-name { font-family: var(--display); font-size: clamp(18px,2vw,24px); letter-spacing: .4px; }
+    .mini-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 999px; background: #1877f2; color: #fff; font-size: 11px; }
+    .friend-button { min-height: 42px; padding: 0 16px; border: 0; background: var(--red); color: #fff; font-weight: 700; cursor: pointer; }
+    .friend-button:disabled { opacity: .45; cursor: not-allowed; }
+    .transfer-modal { width: min(520px, 92vw); padding: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+    .transfer-modal::backdrop { background: rgba(0, 0, 0, 0.6); }
+    .transfer-modal-inner { padding: 24px; }
+    .transfer-modal .eyebrow { margin: 0; }
+    .transfer-modal h2 { margin: 10px 0 8px; font: 900 clamp(30px,5vw,42px)/1 var(--display); }
+    .transfer-summary { margin: 12px 0 18px; color: var(--muted); line-height: 1.6; }
+    .transfer-row { display: grid; gap: 8px; margin-top: 16px; }
+    .transfer-row label { font-size: 10px; letter-spacing: .8px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+    .transfer-row input[type="number"] { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+    .transfer-meta { display: grid; gap: 8px; margin-top: 16px; font-size: 12px; color: var(--muted); }
+    .transfer-meta strong { color: var(--ink); }
+    .transfer-confirm { display: flex; align-items: center; gap: 10px; margin: 18px 0; }
+    .transfer-warning { min-height: 20px; color: #d92b2b; font-size: 12px; font-weight: 700; }
+    .transfer-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .secondary-button { min-height: 42px; padding: 0 16px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-weight: 700; cursor: pointer; }
+    .empty-result { margin-top: 18px; padding: 18px; border: 1px solid var(--line); background: var(--paper); color: var(--muted); font-weight: 700; }
+    @media (max-width: 760px) { .help-panel { padding: 18px; } .friend-result { flex-direction: column; align-items: flex-start; } .friend-button { width: 100%; } .transfer-actions { flex-direction: column-reverse; } .transfer-actions button { width: 100%; } }
+  </style>
+</head>
+<body>
+  <header class="page-topbar"><a class="brand" href="/"><img src="/logo.png" alt="" width="42" height="42"><span><b>ARDTIG</b><strong>STORES</strong></span></a><a class="back-link" href="/"><span>←</span> BACK</a></header>
+  <main class="page-shell help-shell">
+    <p class="eyebrow"><span>COMMUNITY</span> HELP A FRIEND</p>
+    <h1 class="onboard-heading">HELP A <em>FRIEND.</em></h1>
+    <section class="help-panel">
+      <div class="help-search">
+        <span aria-hidden="true">🔍</span>
+        <input id="help-search" type="search" placeholder="Search username..." aria-label="Search for a user to send money to">
+      </div>
+      <p class="page-message" id="help-message" role="status" aria-live="polite"></p>
+      <div class="help-results" id="help-results" aria-live="polite"></div>
+    </section>
+  </main>
+  <dialog id="help-transfer-dialog" class="transfer-modal">
+    <div class="transfer-modal-inner">
+      <p class="eyebrow"><span>TRANSFER</span> WALLET</p>
+      <h2 id="transfer-title">Send Money</h2>
+      <p class="transfer-summary" id="transfer-summary">Are you sure you want to send money from your wallet balance?</p>
+      <div class="transfer-row">
+        <label for="transfer-amount">Amount to send</label>
+        <input id="transfer-amount" type="number" min="100" step="100" placeholder="Enter amount">
+      </div>
+      <div class="transfer-meta">
+        <div>You will pay: <strong id="transfer-total">₦0.00</strong></div>
+        <div>Recipient gets: <strong id="transfer-recipient">₦0.00</strong></div>
+      </div>
+      <label class="transfer-confirm"><input id="transfer-confirm" type="checkbox"> <span>I confirm</span></label>
+      <div class="transfer-warning" id="transfer-warning" aria-live="polite"></div>
+      <div class="transfer-actions">
+        <button type="button" class="secondary-button" id="transfer-cancel">CANCEL</button>
+        <button type="button" class="friend-button" id="transfer-send" disabled>SEND MONEY</button>
+      </div>
+    </div>
+  </dialog>
+  <footer class="site-footer compact-footer"><a class="brand" href="/"><img src="/logo.png" alt="" width="38" height="38"><span><b>ARDTIG</b><strong>STORES</strong></span></a><span>© 2026 ARDTIG STORES</span></footer>
+</body>
+</html>
