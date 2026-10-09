@@ -234,6 +234,51 @@ def list_admin_receipts():
         return jsonify(error="Receipts could not be loaded."), 500
 
 
+@app.get("/api/my-accounts")
+@authenticated
+def list_my_accounts():
+    try:
+        db = database()
+        user_id = request.user_claims["uid"]
+        request_snapshots = db.collection("payment_requests").where("userId", "==", user_id).stream()
+        requests = []
+        for snapshot in request_snapshots:
+            payment = snapshot.to_dict() or {}
+            item = admin_receipt_document(snapshot)
+            account_id = payment.get("accountId")
+            if payment.get("status") == "approved" and payment.get("accountType") != "diamonds" and isinstance(account_id, str):
+                purchase_id = f"{user_id}_{account_id}"
+                purchase_snapshot = db.collection("user_purchases").document(purchase_id).get()
+                delivery = None
+                if purchase_snapshot.exists:
+                    purchase = purchase_snapshot.to_dict() or {}
+                    secret_snapshot = db.collection("account_secrets").document(purchase_id).get()
+                    if (
+                        purchase.get("userId") == user_id
+                        and purchase.get("accountId") == account_id
+                        and purchase.get("status") == "approved"
+                        and secret_snapshot.exists
+                    ):
+                        secret = secret_snapshot.to_dict() or {}
+                        if secret.get("uid") == user_id and secret.get("accountId") == account_id:
+                            delivery = {key: secret.get(key) for key in ("email", "password") if isinstance(secret.get(key), str)}
+                if delivery is None:
+                    legacy_log = db.collection("accountLogs").document(purchase_id).get()
+                    if legacy_log.exists:
+                        log = legacy_log.to_dict() or {}
+                        if log.get("uid") == user_id and log.get("accountId") == account_id and log.get("status") == "approved":
+                            delivery = {key: log.get(key) for key in ("email", "password") if isinstance(log.get(key), str)}
+                if delivery:
+                    item["delivery"] = delivery
+            requests.append(item)
+
+        orders = [admin_receipt_document(snapshot) for snapshot in db.collection("diamondOrders").where("uid", "==", user_id).stream()]
+        return jsonify(requests=requests, diamondOrders=orders), 200
+    except Exception:
+        app.logger.exception("Member purchase history could not load")
+        return jsonify(error="Your purchases could not load."), 500
+
+
 @app.get("/api/config")
 def public_config():
     project_id = os.getenv("FIREBASE_PROJECT_ID", "")
@@ -1288,6 +1333,7 @@ def vercel_api_dispatch():
         "upload": ("POST", upload_image),
         "payment-request": ("POST", create_payment_request),
         "admin-receipts": ("GET", list_admin_receipts),
+        "my-accounts": ("GET", list_my_accounts),
         "vote": ("POST", toggle_category_vote),
         "votes": ("GET", category_vote_summary),
         "share": ("POST", record_listing_share),
