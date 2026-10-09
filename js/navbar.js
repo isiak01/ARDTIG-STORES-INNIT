@@ -182,7 +182,7 @@ function addFooterContactLink() {
   if (!footer || footer.querySelector('.footer-whatsapp-link')) return;
   const link = document.createElement('a');
   link.className = 'footer-whatsapp-link';
-  link.href = 'https://wa.me/2349046148857';
+  link.href = 'https://wa.me/2349046148857?text=Hi%20Admin!.%20Please%20i%20want%20to%20know%20more%20about%20ARDTIG%20STORES%F0%9F%98%8A%F0%9F%98%8A';
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
   link.textContent = 'CONTACT US ON WHATSAPP';
