@@ -8,14 +8,20 @@ const grid = document.querySelector('#account-grid');
 const status = document.querySelector('#category-status');
 const search = document.querySelector('#listing-search');
 let entries = [];
+let availableCount = 0;
 let voteSummary = { count: 0, voted: false };
 
 try {
-  const { db, collection, query, where, getDocs } = await getFirebase();
-  const snapshot = await getDocs(query(collection(db, collections[categoryId]), where('status', '==', 'available')));
-  entries = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+  const { db, collection, query, where, onSnapshot } = await getFirebase();
+  const listingsQuery = query(collection(db, collections[categoryId]), where('status', '==', 'available'));
   voteSummary = await loadVoteSummary().catch(() => voteSummary);
-  render(entries);
+  onSnapshot(listingsQuery, (snapshot) => {
+    entries = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    availableCount = snapshot.size;
+    render(entries);
+  }, (error) => {
+    status.textContent = error.message || 'Could not load the live market.';
+  });
 } catch (error) {
   status.textContent = 'Could not load the live market. Firebase web configuration may be incomplete.';
 }
@@ -29,6 +35,12 @@ document.querySelector('#category-vote')?.addEventListener('click', toggleVote);
 
 function render(list) {
   status.textContent = list.length ? `${list.length} ${categoryId === 'diamonds' ? 'TOP-UP' : 'ACCOUNT'}${list.length === 1 ? '' : 'S'} AVAILABLE` : 'NOT AVAILABLE RIGHT NOW';
+  const countBadge = document.createElement('span');
+  countBadge.className = 'category-count-badge category-page-count';
+  countBadge.textContent = String(availableCount);
+  countBadge.hidden = availableCount === 0;
+  countBadge.setAttribute('aria-label', `${availableCount} available`);
+  status.append(countBadge);
   if (!list.length) {
     const heading = categoryId === 'diamonds' ? 'NO FREE FIRE DIAMONDS HAVE BEEN POSTED YET.' : `NO ${names[categoryId]} ACCOUNTS HAVE BEEN POSTED YET.`;
     const voteControls = `<span class="vote-count">${voteSummary.count} PLAYER${voteSummary.count === 1 ? '' : 'S'} VOTED</span><button class="form-button vote-button${voteSummary.voted ? ' is-voted' : ''}" type="button" id="empty-vote" aria-pressed="${voteSummary.voted}">${voteSummary.voted ? 'VOTED ✓' : 'VOTE IF YOU WANT TO SEE THESE'}</button>`;

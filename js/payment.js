@@ -102,7 +102,13 @@ form.addEventListener('submit', async (event) => {
     if (!response.ok) throw new Error(result.error || 'Could not submit your request.');
     form.hidden = true;
     paymentSummary.hidden = true;
-    successPanel.querySelector('a').href = `/pages/${type}.html`;
+    if (type === 'diamonds') {
+      successPanel.querySelector('h3').textContent = 'YOUR DIAMOND ORDER IS PENDING APPROVAL.';
+      successPanel.querySelector('a').href = '/pages/myaccounts.html';
+      successPanel.querySelector('a').textContent = 'VIEW MY ORDERS →';
+    } else {
+      successPanel.querySelector('a').href = `/pages/${type}.html`;
+    }
     successPanel.hidden = false;
   } catch (error) {
     showMessage(error.message || 'Could not submit your request.');

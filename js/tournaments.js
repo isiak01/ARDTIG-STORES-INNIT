@@ -6,12 +6,25 @@ const message = document.querySelector('[data-page-message]');
 const tabs = [...document.querySelectorAll('[data-status]')];
 const session = await requireMemberSession();
 let tournaments = [];
-let activeStatus = 'upcoming';
+const requestedStatus = new URLSearchParams(location.search).get('tab');
+let activeStatus = ['upcoming', 'ongoing', 'finished'].includes(requestedStatus) ? requestedStatus : 'upcoming';
+
+tabs.forEach((tab) => {
+  const count = document.createElement('span');
+  count.className = 'tournament-count-badge';
+  count.dataset.tournamentCount = tab.dataset.status;
+  count.hidden = true;
+  tab.append(count);
+  const selected = tab.dataset.status === activeStatus;
+  tab.classList.toggle('is-active', selected);
+  tab.setAttribute('aria-selected', String(selected));
+});
 
 if (session) {
   try {
     session.firebase.onSnapshot(session.firebase.collection(session.db, 'tournaments'), (snapshot) => {
       tournaments = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      updateTournamentCounts();
       renderTournaments();
     }, (error) => {
       message.textContent = error.message || 'Tournaments could not load.';
@@ -45,6 +58,16 @@ function renderTournaments() {
   visible.forEach((tournament) => root.append(createTournamentCard(tournament)));
 }
 
+function updateTournamentCounts() {
+  for (const status of ['upcoming', 'ongoing', 'finished']) {
+    const count = tournaments.filter((tournament) => tournament.status === status).length;
+    const badge = document.querySelector(`[data-tournament-count="${status}"]`);
+    badge.textContent = String(count);
+    badge.hidden = count === 0;
+    badge.setAttribute('aria-label', `${count} ${status} tournaments`);
+  }
+}
+
 function createTournamentCard(tournament) {
   const card = document.createElement('article');
   card.className = 'tournament-card';
@@ -63,6 +86,8 @@ function createTournamentCard(tournament) {
   status.className = `tournament-status ${tournament.status}`;
   status.textContent = tournament.status.toUpperCase();
   heading.append(title, status);
+  const isAdmin = session.profile.role === 'admin';
+  const registered = (tournament.registeredUsers || []).some((entry) => entry.uid === session.user.uid || entry.username === session.profile.username);
   const details = document.createElement('dl');
   details.className = 'tournament-details';
   [
@@ -74,13 +99,16 @@ function createTournamentCard(tournament) {
   room.className = 'tournament-room';
   if (tournament.status === 'upcoming') {
     room.textContent = 'Admin will drop room code here when its time';
+  } else if (tournament.status === 'ongoing' && !registered && !isAdmin) {
+    room.textContent = 'Registration closed, tournament ongoing';
+  } else if (!registered && !isAdmin) {
+    room.textContent = 'Tournament finished';
   } else {
-    appendRoomDetail(room, 'ROOM CODE', tournament.roomCode);
+    appendRoomDetail(room, 'ROOM ID', tournament.roomId || tournament.roomCode);
     appendRoomDetail(room, 'ROOM PASSWORD', tournament.roomPassword);
   }
   const actions = document.createElement('div');
   actions.className = 'tournament-actions';
-  const registered = (tournament.registeredUsers || []).some((entry) => entry.username === session.profile.username);
   const register = document.createElement('button');
   register.type = 'button';
   register.className = 'tournament-register';
@@ -95,7 +123,7 @@ function createTournamentCard(tournament) {
   note.className = 'tournament-note';
   note.textContent = 'Register to get notification when room details are dropped';
   actions.append(note);
-  if (session.profile.role === 'admin') addAdminActions(actions, tournament);
+  if (isAdmin) addAdminActions(actions, tournament);
   content.append(heading, details, room, actions);
   card.append(image, content);
   return card;

@@ -11,6 +11,7 @@ const categories = {
 export function initializeStorefront() {
   const grid = document.querySelector('#featured-grid');
   const tabs = [...document.querySelectorAll('.category-tab')];
+  setupCategoryCountBadges(tabs);
   const loginDialog = document.querySelector('#login-dialog');
   const featuredLink = document.querySelector('.view-all');
 
@@ -181,5 +182,46 @@ function escapeText(value) {
 
 function escapeAttribute(value) {
   return escapeText(value).replaceAll('"', '&quot;');
+}
+
+function setupCategoryCountBadges(tabs) {
+  const targets = new Map();
+  const addTarget = (categoryId, target) => {
+    const categoryTargets = targets.get(categoryId) || [];
+    categoryTargets.push(target);
+    targets.set(categoryId, categoryTargets);
+  };
+  for (const tab of tabs) {
+    addTarget(tab.dataset.category, tab);
+  }
+  for (const row of document.querySelectorAll('.category-row')) {
+    const path = new URL(row.href).pathname;
+    const match = Object.entries(categories).find(([, category]) => category.page === path);
+    if (match) addTarget(match[0], row);
+  }
+
+  for (const [categoryId, categoryTargets] of targets) {
+    for (const target of categoryTargets) {
+      const badge = document.createElement('span');
+      badge.className = 'category-count-badge';
+      badge.dataset.categoryCount = categoryId;
+      badge.hidden = true;
+      target.append(badge);
+    }
+  }
+
+  getFirebase().then(({ db, collection, query, where, onSnapshot }) => {
+    for (const [categoryId, category] of Object.entries(categories)) {
+      const availableListings = query(collection(db, category.collection), where('status', '==', 'available'));
+      onSnapshot(availableListings, (snapshot) => {
+        const count = snapshot.size;
+        document.querySelectorAll(`[data-category-count="${categoryId}"]`).forEach((badge) => {
+          badge.textContent = String(count);
+          badge.hidden = count === 0;
+          badge.setAttribute('aria-label', `${count} available`);
+        });
+      }, (error) => console.warn(`Could not load ${categoryId} count:`, error));
+    }
+  }).catch((error) => console.warn('Category counts are unavailable:', error));
 }
 

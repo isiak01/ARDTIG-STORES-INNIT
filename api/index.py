@@ -103,6 +103,35 @@ def write_user_notifications(db, user_ids, title, message):
         batch.commit()
 
 
+def tournament_recipients(db, tournament_id, tournament):
+    user_ids = {
+        entry.get("uid")
+        for entry in tournament.get("registeredUsers", [])
+        if isinstance(entry, dict) and isinstance(entry.get("uid"), str) and entry.get("uid")
+    }
+    registrations = db.collection("tournament_registrations").document(tournament_id).collection("registrants").stream()
+    user_ids.update(item.id for item in registrations)
+    return sorted(user_ids)
+
+
+def write_tournament_notifications(db, user_ids, title, message, tournament_id, notification_type):
+    user_ids = list(dict.fromkeys(user_ids))
+    for offset in range(0, len(user_ids), 450):
+        batch = db.batch()
+        for user_id in user_ids[offset:offset + 450]:
+            reference = db.collection("notifications").document(user_id).collection("items").document()
+            batch.set(reference, {
+                "title": title,
+                "message": message,
+                "type": notification_type,
+                "tournamentId": tournament_id,
+                "status": "unread",
+                "read": False,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            })
+        batch.commit()
+
+
 def caller_is_admin(db, user_id):
     profile = db.collection("users").document(user_id).get()
     return profile.exists and (profile.to_dict() or {}).get("role") == "admin"
@@ -963,10 +992,9 @@ def finish_diamond_order():
                 return "invalid"
             status = "completed" if decision == "complete" else "failed"
             notification_ref = db.collection("notifications").document(user_id).collection("items").document()
-            transaction.update(order_ref, {
-                "orderStatus": status,
-                "completedAt" if decision == "complete" else "failedAt": firestore.SERVER_TIMESTAMP,
-            })
+            order_update = {"orderStatus": status}
+            order_update["completedAt" if decision == "complete" else "failedAt"] = firestore.SERVER_TIMESTAMP
+            transaction.update(order_ref, order_update)
             transaction.set(notification_ref, {
                 "title": "Diamonds delivered" if decision == "complete" else "Diamond top-up failed",
                 "message": "Your diamonds have arrived in your account! Please check your Free Fire account for diamonds." if decision == "complete" else "Your diamond top-up could not be completed. Please contact the store for help.",
@@ -1063,7 +1091,7 @@ def register_tournament():
                 return "already"
             data = tournament.to_dict() or {}
             registrations = list(data.get("registeredUsers", []))
-            registrations.append({"username": profile["username"], "role": profile.get("role", "user"), "time": registered_at})
+            registrations.append({"uid": user_id, "username": profile["username"], "role": profile.get("role", "user"), "time": registered_at})
             transaction.update(tournament_ref, {"registeredUsers": registrations})
             transaction.set(registration_ref, {"username": profile["username"], "role": profile.get("role", "user"), "time": registered_at})
             return "registered"
@@ -1101,7 +1129,7 @@ def add_tournament_room():
                 return "missing"
             if (snapshot.to_dict() or {}).get("status") != "upcoming":
                 return "closed"
-            transaction.update(tournament_ref, {"roomCode": room_code.strip(), "roomPassword": room_password.strip(), "status": "ongoing"})
+            transaction.update(tournament_ref, {"roomId": room_code.strip(), "roomCode": room_code.strip(), "roomPassword": room_password.strip(), "status": "ongoing"})
             return "opened"
 
         result = open_room(db.transaction())
@@ -1109,8 +1137,18 @@ def add_tournament_room():
             return jsonify(error="This tournament could not be found."), 404
         if result == "closed":
             return jsonify(error="Room details can only be added to an upcoming tournament."), 409
-        recipients = [item.id for item in db.collection("tournament_registrations").document(tournament_id).collection("registrants").stream()]
-        write_user_notifications(db, recipients, "Tournament room details are ready", "Tournament Room codes has been dropped, Go to the tournament page to get ROOM DETAILS.")
+        tournament_snapshot = tournament_ref.get()
+        tournament = tournament_snapshot.to_dict() or {}
+        recipients = tournament_recipients(db, tournament_id, tournament)
+        tournament_name = tournament.get("name") or tournament.get("game") or "Free Fire"
+        write_tournament_notifications(
+            db,
+            recipients,
+            "Tournament Ongoing!",
+            f"Your tournament {tournament_name} is now ongoing. Go to Ongoing tab to see room details.",
+            tournament_id,
+            "tournament_ongoing",
+        )
         return jsonify(status="ongoing"), 200
     except Exception:
         app.logger.exception("Tournament room update failed")
@@ -1129,10 +1167,32 @@ def finish_tournament():
         if not caller_is_admin(db, request.user_claims["uid"]):
             return jsonify(error="Admin access is required."), 403
         reference = db.collection("tournaments").document(tournament_id)
-        snapshot = reference.get()
-        if not snapshot.exists:
+        @firestore.transactional
+        def finish(transaction):
+            snapshot = reference.get(transaction=transaction)
+            if not snapshot.exists:
+                return "missing", None
+            tournament = snapshot.to_dict() or {}
+            if tournament.get("status") != "ongoing":
+                return "closed", tournament
+            transaction.update(reference, {"status": "finished"})
+            return "finished", tournament
+
+        result, tournament = finish(db.transaction())
+        if result == "missing":
             return jsonify(error="This tournament could not be found."), 404
-        reference.update({"status": "finished"})
+        if result == "closed":
+            return jsonify(error="Only an ongoing tournament can be marked finished."), 409
+        recipients = tournament_recipients(db, tournament_id, tournament or {})
+        tournament_name = (tournament or {}).get("name") or (tournament or {}).get("game") or "Free Fire"
+        write_tournament_notifications(
+            db,
+            recipients,
+            "Tournament finished!",
+            f"Tournament {tournament_name} finished! Check Finished tab for results/winners.",
+            tournament_id,
+            "tournament_finished",
+        )
         return jsonify(status="finished"), 200
     except Exception:
         app.logger.exception("Tournament finish update failed")

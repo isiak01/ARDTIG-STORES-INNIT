@@ -43,6 +43,14 @@ html,body{max-width:100%;overflow-x:clip}
 @media(max-width:400px){.wallet-widget{gap:4px;padding:3px 6px;font-size:9px}}
 .banned-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:#111;color:#fff}
 .banned-panel{width:min(650px,100%);padding:clamp(24px,6vw,56px);border:1px solid #f00;background:#1a1a1a;text-align:center}
+.category-tab,.category-row{position:relative}
+.category-count-badge{position:absolute;top:-7px;right:-7px;z-index:2;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px;border-radius:999px;background:#e10600;color:#fff;font:700 10px/1 var(--body)}
+.category-count-badge[hidden]{display:none}
+.category-tab .category-count-badge{top:3px;right:3px}
+.category-row .category-count-badge{top:8px;right:8px}
+.category-page-count{position:relative;top:auto;right:auto;display:inline-grid;vertical-align:middle;margin-left:8px}
+.tournament-live-toast{position:fixed;right:20px;bottom:20px;z-index:1000;width:min(380px,calc(100vw - 32px));padding:14px 16px;border:1px solid #e10600;background:var(--surface);color:var(--ink);box-shadow:0 10px 30px #0004;font-size:12px;font-weight:700;line-height:1.5}
+.tournament-live-toast:hover{color:#e10600}
 .banned-panel h1{margin:0;color:#f00;font:900 clamp(36px,8vw,64px)/1 var(--display)}
 .banned-panel p{margin:18px 0 26px;font-size:14px;line-height:1.7}
 .banned-panel button{min-height:44px;padding:0 22px;border:0;background:#f00;color:#fff;font-weight:700;cursor:pointer}

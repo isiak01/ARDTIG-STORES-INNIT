@@ -81,7 +81,7 @@ async function showPurchase(newBalance) {
   const success = document.querySelector('#wallet-purchase-success');
   success.hidden = false;
   if (accountType === 'diamonds') {
-    success.innerHTML = `<h2>PAYMENT APPROVED</h2><p>Your Free Fire diamonds order is approved and will be delivered to UID ${escapeText(document.querySelector('#wallet-player-uid').value.trim())}.</p><p>Remaining balance: <strong>${formatNaira(newBalance)}</strong></p><a class="form-button" href="/pages/myaccounts.html">MY ACCOUNTS</a>`;
+    success.innerHTML = `<h2>PAYMENT SUCCESSFUL!</h2><span class="diamond-order-status">IN PROGRESS</span><p>Your payment was successful. Your diamonds will appear in your account soon.</p><p>Remaining balance: <strong>${formatNaira(newBalance)}</strong></p><a class="form-button" href="/pages/myaccounts.html">MY ORDERS</a>`;
     return;
   }
   success.innerHTML = `<h2>PAYMENT APPROVED</h2><p>Your wallet payment succeeded. Remaining balance: <strong>${formatNaira(newBalance)}</strong></p><p>Account details are available in My Accounts.</p><a class="form-button" href="/pages/myaccounts.html">MY ACCOUNTS</a>`;

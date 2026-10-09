@@ -32,7 +32,7 @@ export function initializeNavigation() {
 
   if (!loggedOut || !memberLinks) return;
   let stopWalletUpdates;
-  getFirebase().then(({ auth, db, onAuthStateChanged, doc, getDoc, collection, query, orderBy, limit, onSnapshot, getDocs, updateDoc, deleteDoc }) => {
+  getFirebase().then(({ auth, db, onAuthStateChanged, doc, getDoc, collection, query, where, orderBy, limit, onSnapshot, getDocs, updateDoc, deleteDoc }) => {
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         loggedOut.hidden = false;
@@ -66,22 +66,40 @@ export function initializeNavigation() {
         await signOut(auth);
         location.assign('/');
       });
-      const items = query(collection(db, 'notifications', user.uid, 'items'), orderBy('createdAt', 'desc'), limit(15));
+      const notificationItems = collection(db, 'notifications', user.uid, 'items');
+      const unreadItems = query(notificationItems, where('read', '==', false));
+      onSnapshot(unreadItems, (snapshot) => {
+        badge.hidden = snapshot.empty;
+        badge.textContent = String(snapshot.size);
+        snapshot.forEach((item) => maybeShowTournamentToast(user.uid, item.id, item.data()));
+      });
+      const items = query(notificationItems, orderBy('createdAt', 'desc'), limit(15));
       onSnapshot(items, (snapshot) => {
-        const unread = snapshot.docs.filter((item) => item.data().read !== true).length;
-        badge.hidden = unread === 0;
-        badge.textContent = String(unread);
         notificationList.innerHTML = snapshot.empty ? '<p class="notification-empty">NO NOTIFICATIONS YET.</p>' : '';
         snapshot.forEach((item) => {
           const notification = item.data();
           const row = document.createElement('article');
           row.className = `notification-item ${notification.read ? '' : 'is-unread'}`;
+          row.setAttribute('role', 'button');
+          row.tabIndex = 0;
           row.innerHTML = `<div><b></b><p></p></div><button type="button" aria-label="Delete notification">×</button>`;
           row.querySelector('b').textContent = notification.title || 'UPDATE';
           row.querySelector('p').textContent = notification.message || '';
-          row.addEventListener('click', async (event) => {
+          const activateNotification = async (event) => {
             if (event.target.closest('button')) await deleteDoc(doc(db, 'notifications', user.uid, 'items', item.id));
-            else if (!notification.read) await updateDoc(doc(db, 'notifications', user.uid, 'items', item.id), { read: true });
+            else {
+              if (!notification.read) await updateDoc(doc(db, 'notifications', user.uid, 'items', item.id), { read: true, status: 'read' });
+              notificationPanel.hidden = true;
+              if (notification.type === 'tournament_ongoing') location.assign('/pages/tournaments.html?tab=ongoing');
+              else if (notification.type === 'tournament_finished') location.assign('/pages/tournaments.html?tab=finished');
+            }
+          };
+          row.addEventListener('click', activateNotification);
+          row.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              activateNotification(event);
+            }
           });
           notificationList.append(row);
         });
@@ -91,7 +109,7 @@ export function initializeNavigation() {
         markAllRead.dataset.bound = 'true';
         markAllRead.addEventListener('click', async () => {
           const snapshot = await getDocs(items);
-          await Promise.all(snapshot.docs.filter((item) => item.data().read !== true).map((item) => updateDoc(doc(db, 'notifications', user.uid, 'items', item.id), { read: true })));
+          await Promise.all(snapshot.docs.filter((item) => item.data().read !== true).map((item) => updateDoc(doc(db, 'notifications', user.uid, 'items', item.id), { read: true, status: 'read' })));
         });
       }
     });
@@ -104,6 +122,24 @@ export function initializeNavigation() {
   document.addEventListener('click', (event) => {
     if (notificationPanel && !notificationPanel.hidden && !notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) notificationPanel.hidden = true;
   });
+}
+
+function showTournamentToast() {
+  const toast = document.createElement('a');
+  toast.className = 'tournament-live-toast';
+  toast.href = '/pages/tournaments.html?tab=ongoing';
+  toast.textContent = 'Tournament is ongoing. Go to Ongoing tab to see room details.';
+  document.body.append(toast);
+  window.setTimeout(() => toast.remove(), 8000);
+}
+
+function maybeShowTournamentToast(userId, notificationId, notification) {
+  if (notification.type !== 'tournament_ongoing') return;
+  const toastKey = `${userId}:${notificationId}`;
+  if (!window.__ardtigTournamentToasts) window.__ardtigTournamentToasts = new Set();
+  if (window.__ardtigTournamentToasts.has(toastKey)) return;
+  window.__ardtigTournamentToasts.add(toastKey);
+  showTournamentToast();
 }
 
 function ensureInnerHeader() {

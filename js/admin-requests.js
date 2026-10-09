@@ -150,10 +150,11 @@ function createDiamondOrderCard(order) {
   card.className = 'request-card diamond-order-card';
   const paid = order.paymentStatus === 'successful';
   const paymentLabel = order.paymentMethod === 'wallet' ? 'WALLET - PAID' : paid ? 'MANUAL - PAID' : order.paymentStatus === 'rejected' ? 'MANUAL - REJECTED' : 'MANUAL - PENDING';
+  const paymentClass = paid ? 'is-paid' : order.paymentStatus === 'rejected' ? 'is-rejected' : 'is-pending';
   const orderLabel = (order.orderStatus || 'pending').replaceAll('_', ' ').toUpperCase();
   const detail = document.createElement('div');
   detail.className = 'diamond-order-heading';
-  detail.innerHTML = `<div><b>${safeText(order.username || 'PLAYER')}</b><small>UID ${safeText(order.uidGame || '—')} · ${safeText(order.gameName || '—')}</small></div><span class="diamond-payment-badge ${paid ? 'is-paid' : 'is-pending'}">${paymentLabel}</span>`;
+  detail.innerHTML = `<div><b>${safeText(order.username || 'PLAYER')}</b><small>UID ${safeText(order.uidGame || '—')} · ${safeText(order.gameName || '—')}</small></div><span class="diamond-payment-badge ${paymentClass}">${paymentLabel}</span>`;
   const fields = document.createElement('dl');
   fields.className = 'detail-list diamond-order-details';
   fields.innerHTML = `<div><dt>PACKAGE</dt><dd>${safeText(order.package || 'Free Fire diamonds')}</dd></div><div><dt>PRICE</dt><dd>₦${Number(order.price || 0).toLocaleString('en-NG')}</dd></div><div><dt>TIME</dt><dd>${formatDate(order.createdAt?.toDate?.())}</dd></div><div><dt>ORDER STATUS</dt><dd>${safeText(orderLabel)}</dd></div>`;
