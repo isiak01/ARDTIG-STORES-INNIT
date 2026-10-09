@@ -462,8 +462,8 @@ def send_money_between_users():
 
         @firestore.transactional
         def transfer_funds(transaction):
-            sender_snapshot = transaction.get(sender_ref)
-            receiver_snapshot = transaction.get(receiver_ref)
+            sender_snapshot = sender_ref.get(transaction=transaction)
+            receiver_snapshot = receiver_ref.get(transaction=transaction)
             if not sender_snapshot.exists or not receiver_snapshot.exists:
                 return "missing"
 
