@@ -149,10 +149,11 @@ function createDiamondOrderCard(order) {
   const orderLabel = (order.orderStatus || 'pending').replaceAll('_', ' ').toUpperCase();
   const detail = document.createElement('div');
   detail.className = 'diamond-order-heading';
-  detail.innerHTML = `<div><b>${safeText(order.username || 'PLAYER')}</b><small>UID ${safeText(order.uidGame || '—')} · ${safeText(order.gameName || '—')}</small></div><span class="diamond-payment-badge ${paymentClass}">${paymentLabel}</span>`;
+  detail.innerHTML = `<div><b>${safeText(order.username || 'PLAYER')}</b></div><span class="diamond-payment-badge ${paymentClass}">${paymentLabel}</span>`;
   const fields = document.createElement('dl');
   fields.className = 'detail-list diamond-order-details';
   fields.innerHTML = `<div><dt>PACKAGE</dt><dd>${safeText(order.package || 'Free Fire diamonds')}</dd></div><div><dt>PRICE</dt><dd>₦${Number(order.price || 0).toLocaleString('en-NG')}</dd></div><div><dt>TIME</dt><dd>${formatDate(order.createdAt)}</dd></div><div><dt>ORDER STATUS</dt><dd>${safeText(orderLabel)}</dd></div>`;
+  fields.append(createCopyDetailRow('GAME UID', order.uidGame), createCopyDetailRow('GAME NAME', order.gameName));
   card.append(detail, fields);
   if (order.paymentMethod === 'wallet') {
     const note = document.createElement('p');
@@ -263,6 +264,13 @@ function createRequestCard(id, request) {
   card.dataset.id = id;
   const actions = request.status === 'pending' ? `<button class="form-button approve-button" data-action="approve" data-request-id="${safeAttribute(id)}">APPROVE</button><button class="form-button reject-button" data-action="reject" data-request-id="${safeAttribute(id)}">REJECT</button>` : request.status === 'approved' ? `<button class="form-button reject-button" data-action="cancel" data-request-id="${safeAttribute(id)}">CANCEL APPROVAL</button>` : '';
   card.innerHTML = `<div class="request-user"><img src="${safeAttribute(request.userPhoto || '/logo.png')}" alt=""><div><b>${safeText(request.username || 'PLAYER')}</b><small>${safeText((request.accountType || 'ACCOUNT').toUpperCase())} · ${formatDate(request.createdAt)}</small></div></div><dl class="detail-list"><div><dt>AMOUNT</dt><dd>₦${Number(request.price || 0).toLocaleString('en-NG')}</dd></div>${request.uid ? `<div><dt>GAME UID</dt><dd>${safeText(request.uid)}</dd></div>` : ''}${request.gameName ? `<div><dt>GAME NAME</dt><dd>${safeText(request.gameName)}</dd></div>` : ''}</dl><div class="request-links"><a href="${safeAttribute(request.receiptURL)}" target="_blank" rel="noopener">VIEW RECEIPT ↗</a><a href="/pages/view.html?id=${encodeURIComponent(request.accountId)}&type=${encodeURIComponent(request.accountType)}" target="_blank" rel="noopener">VIEW LISTING ↗</a></div><div class="request-actions">${actions}</div>`;
+  if (request.accountType === 'diamonds') {
+    card.querySelectorAll('.detail-list > div').forEach((row) => {
+      const label = row.querySelector('dt')?.textContent;
+      if (label === 'GAME UID') appendCopyButton(row.querySelector('dd'), request.uid, label);
+      if (label === 'GAME NAME') appendCopyButton(row.querySelector('dd'), request.gameName, label);
+    });
+  }
   if (request.userRole === 'admin') {
     card.querySelector('.request-user b').append(createVerifiedBadge());
     const photo = card.querySelector('.request-user img');
@@ -272,6 +280,36 @@ function createRequestCard(id, request) {
     avatar.append(photo, createVerifiedBadge({ avatar: true }));
   }
   return card;
+}
+
+function createCopyDetailRow(label, value) {
+  const row = document.createElement('div');
+  const term = document.createElement('dt');
+  const description = document.createElement('dd');
+  term.textContent = label;
+  description.textContent = value || '—';
+  appendCopyButton(description, value, label);
+  row.append(term, description);
+  return row;
+}
+
+function appendCopyButton(container, value, label) {
+  if (!container || !value) return;
+  const button = document.createElement('button');
+  button.className = 'copy-button';
+  button.type = 'button';
+  button.textContent = 'COPY';
+  button.setAttribute('aria-label', `Copy ${label.toLowerCase()}`);
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(String(value));
+      button.textContent = 'COPIED';
+    } catch {
+      button.textContent = 'COPY FAILED';
+    }
+    window.setTimeout(() => { button.textContent = 'COPY'; }, 1400);
+  });
+  container.append(button);
 }
 
 async function handleAction(action, requestId) {
