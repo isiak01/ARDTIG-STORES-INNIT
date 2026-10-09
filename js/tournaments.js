@@ -75,8 +75,8 @@ function createTournamentCard(tournament) {
   if (tournament.status === 'upcoming') {
     room.textContent = 'Admin will drop room code here when its time';
   } else {
-    appendDetail(room, 'ROOM CODE', tournament.roomCode || 'Not posted');
-    appendDetail(room, 'ROOM PASSWORD', tournament.roomPassword || 'Not posted');
+    appendRoomDetail(room, 'ROOM CODE', tournament.roomCode);
+    appendRoomDetail(room, 'ROOM PASSWORD', tournament.roomPassword);
   }
   const actions = document.createElement('div');
   actions.className = 'tournament-actions';
@@ -107,6 +107,35 @@ function appendDetail(list, label, value) {
   const description = document.createElement('dd');
   term.textContent = label;
   description.textContent = value === undefined || value === null || value === '' ? '—' : String(value);
+  row.append(term, description);
+  list.append(row);
+}
+
+function appendRoomDetail(list, label, value) {
+  const row = document.createElement('div');
+  const term = document.createElement('dt');
+  const description = document.createElement('dd');
+  const text = document.createElement('span');
+  term.textContent = label;
+  text.textContent = value || 'Not posted';
+  description.append(text);
+  if (value) {
+    const button = document.createElement('button');
+    button.className = 'room-copy-button';
+    button.type = 'button';
+    button.textContent = 'COPY';
+    button.setAttribute('aria-label', `Copy ${label.toLowerCase()}`);
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(String(value));
+        button.textContent = 'COPIED';
+      } catch {
+        button.textContent = 'FAILED';
+      }
+      window.setTimeout(() => { button.textContent = 'COPY'; }, 1400);
+    });
+    description.append(button);
+  }
   row.append(term, description);
   list.append(row);
 }

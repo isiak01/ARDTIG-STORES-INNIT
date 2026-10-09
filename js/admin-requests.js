@@ -7,6 +7,7 @@ const message = document.querySelector('#admin-message');
 let access;
 let activeType = 'freefire';
 let activeStatus = 'pending';
+let statusFilter;
 
 access = await requireAdmin();
 if (access) {
@@ -25,7 +26,7 @@ if (access) {
     document.querySelectorAll('[data-request-type]').forEach((item) => item.classList.toggle('is-active', item === tab));
     loadRequests();
   }));
-  const statusFilter = document.createElement('select');
+  statusFilter = document.createElement('select');
   statusFilter.className = 'text-input request-status-select';
   statusFilter.setAttribute('aria-label', 'Filter payment request status');
   statusFilter.innerHTML = '<option value="pending">PENDING</option><option value="approved">APPROVED</option><option value="rejected">REJECTED</option><option value="cancelled">CANCELLED</option>';
@@ -38,6 +39,11 @@ if (access) {
 async function loadPendingCounts() {
   const { db, collection, query, where, getDocs } = access.firebase;
   await Promise.all([...Object.keys(collections), 'topups', 'transfers'].map(async (type) => {
+    if (type === 'diamonds') {
+      const snapshot = await getDocs(collection(db, 'diamondOrders'));
+      document.querySelector('[data-request-type="diamonds"] .tab-count').textContent = String(snapshot.docs.filter((item) => item.data().orderStatus !== 'completed').length);
+      return;
+    }
     if (type === 'topups') {
       const snapshot = await getDocs(query(collection(db, 'topupRequests'), where('status', '==', 'pending')));
       document.querySelector('[data-request-type="topups"] .tab-count').textContent = String(snapshot.size);
@@ -55,6 +61,11 @@ async function loadPendingCounts() {
 
 async function loadRequests() {
   if (!access) return;
+  if (activeType === 'diamonds') {
+    statusFilter.hidden = true;
+    return loadDiamondOrders();
+  }
+  statusFilter.hidden = false;
   if (activeType === 'topups') return loadTopupRequests();
   if (activeType === 'transfers') return loadTransfers();
   panel.innerHTML = '<p class="loading-state">LOADING REQUESTS…</p>';
@@ -110,6 +121,92 @@ async function loadTransfers() {
   } catch (error) {
     message.hidden = false;
     message.textContent = error.message || 'Transfers could not load.';
+  }
+}
+
+async function loadDiamondOrders() {
+  panel.innerHTML = '<p class="loading-state">LOADING DIAMOND ORDERS…</p>';
+  try {
+    const { db, collection, getDocs } = access.firebase;
+    const snapshot = await getDocs(collection(db, 'diamondOrders'));
+    const orders = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+      .filter((order) => order.orderStatus !== 'completed')
+      .sort((left, right) => dateValue(right.createdAt) - dateValue(left.createdAt));
+    document.querySelector('[data-request-type="diamonds"] .tab-count').textContent = String(orders.length);
+    if (!orders.length) {
+      panel.innerHTML = '<div class="empty-market"><div><span class="stock-label"><i></i> TOP-UP QUEUE CLEAR</span><h3>NO OPEN DIAMOND ORDERS.</h3></div></div>';
+      return;
+    }
+    panel.replaceChildren(...orders.map(createDiamondOrderCard));
+    panel.querySelectorAll('[data-diamond-action]').forEach((button) => button.addEventListener('click', () => handleDiamondAction(button.dataset.diamondAction, button.dataset.orderId, button)));
+  } catch (error) {
+    message.hidden = false;
+    message.textContent = error.message || 'Diamond orders could not load.';
+  }
+}
+
+function createDiamondOrderCard(order) {
+  const card = document.createElement('article');
+  card.className = 'request-card diamond-order-card';
+  const paid = order.paymentStatus === 'successful';
+  const paymentLabel = order.paymentMethod === 'wallet' ? 'WALLET - PAID' : paid ? 'MANUAL - PAID' : order.paymentStatus === 'rejected' ? 'MANUAL - REJECTED' : 'MANUAL - PENDING';
+  const orderLabel = (order.orderStatus || 'pending').replaceAll('_', ' ').toUpperCase();
+  const detail = document.createElement('div');
+  detail.className = 'diamond-order-heading';
+  detail.innerHTML = `<div><b>${safeText(order.username || 'PLAYER')}</b><small>UID ${safeText(order.uidGame || '—')} · ${safeText(order.gameName || '—')}</small></div><span class="diamond-payment-badge ${paid ? 'is-paid' : 'is-pending'}">${paymentLabel}</span>`;
+  const fields = document.createElement('dl');
+  fields.className = 'detail-list diamond-order-details';
+  fields.innerHTML = `<div><dt>PACKAGE</dt><dd>${safeText(order.package || 'Free Fire diamonds')}</dd></div><div><dt>PRICE</dt><dd>₦${Number(order.price || 0).toLocaleString('en-NG')}</dd></div><div><dt>TIME</dt><dd>${formatDate(order.createdAt?.toDate?.())}</dd></div><div><dt>ORDER STATUS</dt><dd>${safeText(orderLabel)}</dd></div>`;
+  card.append(detail, fields);
+  if (order.paymentMethod === 'wallet') {
+    const note = document.createElement('p');
+    note.className = 'diamond-order-note';
+    note.textContent = 'Payment already successful, balance already deducted. Please top up diamonds for the user.';
+    card.append(note);
+  } else if (order.receiptUrl) {
+    const receipt = document.createElement('a');
+    receipt.className = 'diamond-order-receipt';
+    receipt.href = safeAttribute(order.receiptUrl);
+    receipt.target = '_blank';
+    receipt.rel = 'noopener';
+    receipt.innerHTML = `<img src="${safeAttribute(order.receiptUrl)}" alt="Diamond order payment receipt" loading="lazy"><span>VIEW RECEIPT</span>`;
+    card.append(receipt);
+  }
+  const actions = document.createElement('div');
+  actions.className = 'request-actions';
+  if (order.paymentMethod === 'manual' && order.paymentStatus === 'pending') {
+    actions.innerHTML = `<button class="form-button approve-button" data-diamond-action="approve" data-order-id="${safeAttribute(order.id)}">APPROVE PAYMENT</button><button class="form-button reject-button" data-diamond-action="reject" data-order-id="${safeAttribute(order.id)}">REJECT PAYMENT</button>`;
+  } else if (paid && order.orderStatus === 'in_progress') {
+    actions.innerHTML = `<button class="form-button approve-button" data-diamond-action="complete" data-order-id="${safeAttribute(order.id)}">SUCCESSFUL TOPUP</button><button class="form-button reject-button" data-diamond-action="failed" data-order-id="${safeAttribute(order.id)}">FAILED</button>`;
+  }
+  if (actions.childElementCount) card.append(actions);
+  return card;
+}
+
+async function handleDiamondAction(action, orderId, button) {
+  const prompts = {
+    approve: 'Confirm the manual payment and start this diamond top-up?',
+    reject: 'Reject this manual diamond payment?',
+    complete: 'Confirm that the diamonds have been topped up?',
+    failed: 'Mark this diamond top-up as failed?',
+  };
+  if (!window.confirm(prompts[action])) return;
+  const card = button.closest('.diamond-order-card');
+  card.querySelectorAll('button').forEach((item) => { item.disabled = true; });
+  try {
+    const review = action === 'approve' || action === 'reject';
+    const response = await fetch(review ? '/api/diamond-order-review' : '/api/diamond-order-finish', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await access.user.getIdToken()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, decision: review ? action : action }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'The diamond order could not be updated.');
+    await loadDiamondOrders();
+  } catch (error) {
+    message.hidden = false;
+    message.textContent = error.message || 'The diamond order could not be updated.';
+    card.querySelectorAll('button').forEach((item) => { item.disabled = false; });
   }
 }
 

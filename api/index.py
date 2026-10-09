@@ -118,6 +118,13 @@ def public_user_summary(user_id, profile):
     }
 
 
+def diamond_package(listing):
+    amount = listing.get("diamonds")
+    if isinstance(amount, (int, float)) and not isinstance(amount, bool):
+        return f"{amount:,.0f} diamonds"
+    return str(listing.get("prime") or "Free Fire diamonds")
+
+
 @app.get("/api/config")
 def public_config():
     project_id = os.getenv("FIREBASE_PROJECT_ID", "")
@@ -245,6 +252,41 @@ def create_payment_request():
         admins = list(db.collection("users").where("role", "==", "admin").stream())
         if not admins:
             return jsonify(error="Payment requests are temporarily unavailable because no administrators are configured."), 503
+
+        if account_type == "diamonds":
+            order_ref = db.collection("diamondOrders").document()
+            order = {
+                "uid": user_id,
+                "userId": user_id,
+                "username": profile.get("username", "PLAYER"),
+                "uidGame": payment["uid"],
+                "gameName": payment["gameName"],
+                "package": diamond_package(listing),
+                "price": listing.get("price"),
+                "paymentMethod": "manual",
+                "paymentStatus": "pending",
+                "orderStatus": "pending",
+                "receipt": receipt_url,
+                "receiptUrl": receipt_url,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            }
+            batch = db.batch()
+            batch.set(order_ref, order)
+            notification_message = (
+                f"New diamond order (MANUAL - PENDING). User: {order['username']}, "
+                f"UID: {order['uidGame']}, Game Name: {order['gameName']}, "
+                f"Package: {order['package']}, Price: ₦{order['price']:,.0f}."
+            )
+            for admin in admins:
+                notification_ref = db.collection("notifications").document(admin.id).collection("items").document()
+                batch.set(notification_ref, {
+                    "title": "New manual diamond order",
+                    "message": notification_message,
+                    "read": False,
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                })
+            batch.commit()
+            return jsonify(orderId=order_ref.id, paymentStatus="pending", orderStatus="pending"), 201
 
         payment_ref = db.collection("payment_requests").document()
         batch = db.batch()
@@ -733,6 +775,16 @@ def purchase_with_wallet():
         account_log_ref = db.collection("accountLogs").document(purchase_id)
         sold_ref = db.collection("sold_accounts").document(account_id)
         notification_ref = db.collection("notifications").document(user_id).collection("items").document()
+        diamond_order_ref = db.collection("diamondOrders").document() if account_type == "diamonds" else None
+        admin_notification_refs = []
+        if account_type == "diamonds":
+            admins = list(db.collection("users").where("role", "==", "admin").stream())
+            if not admins:
+                return jsonify(error="Diamond orders are temporarily unavailable because no administrators are configured."), 503
+            admin_notification_refs = [
+                db.collection("notifications").document(admin.id).collection("items").document()
+                for admin in admins
+            ]
 
         @firestore.transactional
         def charge_wallet(transaction):
@@ -754,24 +806,57 @@ def purchase_with_wallet():
             if account_type != "diamonds" and (not secret_snapshot or not secret_snapshot.exists):
                 return "missing_secret"
             secret_data = secret_snapshot.to_dict() or {} if secret_snapshot else {}
+            transaction.update(profile_ref, {"walletBalance": balance - price})
+            if account_type == "diamonds":
+                username = profile.get("username", "PLAYER")
+                package = diamond_package(account)
+                order = {
+                    "uid": user_id,
+                    "userId": user_id,
+                    "username": username,
+                    "uidGame": player_uid.strip()[:40],
+                    "gameName": game_name.strip()[:80],
+                    "package": package,
+                    "price": price,
+                    "paymentMethod": "wallet",
+                    "paymentStatus": "successful",
+                    "orderStatus": "in_progress",
+                    "receipt": None,
+                    "receiptUrl": None,
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                }
+                transaction.set(diamond_order_ref, order)
+                transaction.set(notification_ref, {
+                    "title": "Payment Successful!",
+                    "message": "Your payment was successful. Your diamonds will appear in your account soon.",
+                    "read": False,
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                })
+                admin_message = (
+                    f"New diamond order (WALLET PAID) - Payment already successful. "
+                    f"User: {username}, UID: {order['uidGame']}, Game Name: {order['gameName']}, "
+                    f"Package: {package}, Price: ₦{price:,.0f}."
+                )
+                for reference in admin_notification_refs:
+                    transaction.set(reference, {
+                        "title": "New diamond order (WALLET PAID)",
+                        "message": admin_message,
+                        "read": False,
+                        "createdAt": firestore.SERVER_TIMESTAMP,
+                    })
+                return {"requestId": diamond_order_ref.id, "walletBalance": balance - price, "orderStatus": "in_progress"}
+
             purchase_data = {
                 "userId": user_id, "accountId": account_id, "accountType": account_type,
                 "price": price, "status": "approved", "paymentMethod": "wallet",
                 "createdAt": firestore.SERVER_TIMESTAMP,
             }
-            if account_type == "diamonds":
-                purchase_data.update({"uid": player_uid.strip()[:40], "gameName": game_name.strip()[:80]})
-            transaction.update(profile_ref, {"walletBalance": balance - price})
-            if account_type != "diamonds":
-                transaction.update(account_ref, {"status": "sold"})
+            transaction.update(account_ref, {"status": "sold"})
             transaction.set(payment_ref, {**purchase_data, "username": profile.get("username", "PLAYER")})
-            if account_type != "diamonds":
-                transaction.set(purchase_ref, {"userId": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "createdAt": firestore.SERVER_TIMESTAMP})
-                transaction.set(user_secret_ref, {**secret_data, "uid": user_id, "accountId": account_id})
-                transaction.set(account_log_ref, {"uid": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "createdAt": firestore.SERVER_TIMESTAMP, **secret_data})
-                transaction.set(sold_ref, {**account, "id": account_id, "accountType": account_type, "status": "sold", "soldAt": firestore.SERVER_TIMESTAMP})
-            else:
-                transaction.set(account_log_ref, {"uid": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "gameName": game_name.strip()[:80], "gameUid": player_uid.strip()[:40], "createdAt": firestore.SERVER_TIMESTAMP})
+            transaction.set(purchase_ref, {"userId": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "createdAt": firestore.SERVER_TIMESTAMP})
+            transaction.set(user_secret_ref, {**secret_data, "uid": user_id, "accountId": account_id})
+            transaction.set(account_log_ref, {"uid": user_id, "accountId": account_id, "accountType": account_type, "status": "approved", "createdAt": firestore.SERVER_TIMESTAMP, **secret_data})
+            transaction.set(sold_ref, {**account, "id": account_id, "accountType": account_type, "status": "sold", "soldAt": firestore.SERVER_TIMESTAMP})
             transaction.set(notification_ref, {"title": "Wallet purchase approved", "message": "Your wallet payment was successful. Go to My Accounts to view your account details.", "read": False, "createdAt": firestore.SERVER_TIMESTAMP})
             return {"requestId": payment_ref.id, "walletBalance": balance - price}
 
@@ -786,10 +871,121 @@ def purchase_with_wallet():
             return jsonify(error="Insufficient balance. Please topup wallet or pay with manual transfer."), 409
         if result == "missing_secret":
             return jsonify(error="Private delivery details are missing; checkout stopped."), 409
+        if account_type == "diamonds":
+            return jsonify(**result, status="in_progress", paymentStatus="successful"), 201
         return jsonify(**result, status="approved"), 201
     except Exception:
         app.logger.exception("Wallet purchase failed")
         return jsonify(error="Wallet payment could not be completed."), 500
+
+
+@app.post("/api/diamond-order-review")
+@authenticated
+def review_diamond_order():
+    payload = request.get_json(silent=True) or {}
+    order_id = payload.get("orderId")
+    decision = payload.get("decision")
+    if not isinstance(order_id, str) or not order_id or not isinstance(decision, str) or decision not in {"approve", "reject"}:
+        return jsonify(error="The diamond order review is invalid."), 400
+    try:
+        db = database()
+        if not caller_is_admin(db, request.user_claims["uid"]):
+            return jsonify(error="Admin access is required."), 403
+        order_ref = db.collection("diamondOrders").document(order_id)
+
+        @firestore.transactional
+        def review(transaction):
+            order_snapshot = order_ref.get(transaction=transaction)
+            if not order_snapshot.exists:
+                return "missing"
+            order = order_snapshot.to_dict() or {}
+            if order.get("paymentMethod") != "manual" or order.get("paymentStatus") != "pending" or order.get("orderStatus") != "pending":
+                return "reviewed"
+            user_id = order.get("uid") or order.get("userId")
+            if not isinstance(user_id, str) or not user_id:
+                return "invalid"
+            notification_ref = db.collection("notifications").document(user_id).collection("items").document()
+            if decision == "approve":
+                transaction.update(order_ref, {"paymentStatus": "successful", "orderStatus": "in_progress", "reviewedAt": firestore.SERVER_TIMESTAMP})
+                transaction.set(notification_ref, {
+                    "title": "Diamond payment approved",
+                    "message": "Your payment was approved. Your diamond top-up is in progress.",
+                    "read": False,
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                })
+                return "approved"
+            transaction.update(order_ref, {"paymentStatus": "rejected", "orderStatus": "rejected", "reviewedAt": firestore.SERVER_TIMESTAMP})
+            transaction.set(notification_ref, {
+                "title": "Diamond payment rejected",
+                "message": "Your diamond payment could not be verified. Please contact the store for help.",
+                "read": False,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            })
+            return "rejected"
+
+        result = review(db.transaction())
+        if result == "missing":
+            return jsonify(error="This diamond order could not be found."), 404
+        if result == "reviewed":
+            return jsonify(error="This diamond order was already reviewed."), 409
+        if result == "invalid":
+            return jsonify(error="This diamond order has invalid user details."), 400
+        return jsonify(paymentStatus="successful" if result == "approved" else "rejected", orderStatus="in_progress" if result == "approved" else "rejected"), 200
+    except Exception:
+        app.logger.exception("Diamond order payment review failed")
+        return jsonify(error="The diamond order could not be reviewed."), 500
+
+
+@app.post("/api/diamond-order-finish")
+@authenticated
+def finish_diamond_order():
+    payload = request.get_json(silent=True) or {}
+    order_id = payload.get("orderId")
+    decision = payload.get("decision")
+    if not isinstance(order_id, str) or not order_id or not isinstance(decision, str) or decision not in {"complete", "failed"}:
+        return jsonify(error="The diamond order update is invalid."), 400
+    try:
+        db = database()
+        if not caller_is_admin(db, request.user_claims["uid"]):
+            return jsonify(error="Admin access is required."), 403
+        order_ref = db.collection("diamondOrders").document(order_id)
+
+        @firestore.transactional
+        def finish(transaction):
+            order_snapshot = order_ref.get(transaction=transaction)
+            if not order_snapshot.exists:
+                return "missing"
+            order = order_snapshot.to_dict() or {}
+            if order.get("paymentStatus") != "successful" or order.get("orderStatus") != "in_progress":
+                return "not_ready"
+            user_id = order.get("uid") or order.get("userId")
+            if not isinstance(user_id, str) or not user_id:
+                return "invalid"
+            status = "completed" if decision == "complete" else "failed"
+            notification_ref = db.collection("notifications").document(user_id).collection("items").document()
+            transaction.update(order_ref, {
+                "orderStatus": status,
+                "completedAt" if decision == "complete" else "failedAt": firestore.SERVER_TIMESTAMP,
+            })
+            transaction.set(notification_ref, {
+                "title": "Diamonds delivered" if decision == "complete" else "Diamond top-up failed",
+                "message": "Your diamonds have arrived in your account! Please check your Free Fire account for diamonds." if decision == "complete" else "Your diamond top-up could not be completed. Please contact the store for help.",
+                "read": False,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            })
+            return status
+
+        result = finish(db.transaction())
+        if result == "missing":
+            return jsonify(error="This diamond order could not be found."), 404
+        if result == "not_ready":
+            return jsonify(error="Only paid diamond orders in progress can be completed or failed."), 409
+        if result == "invalid":
+            return jsonify(error="This diamond order has invalid user details."), 400
+        return jsonify(orderStatus=result), 200
+    except Exception:
+        app.logger.exception("Diamond order completion failed")
+        return jsonify(error="The diamond order could not be updated."), 500
 
 
 @app.post("/api/tournament")
@@ -957,6 +1153,8 @@ def vercel_api_dispatch():
         "topup-request": ("POST", create_topup_request),
         "topup-review": ("POST", review_topup_request),
         "wallet-purchase": ("POST", purchase_with_wallet),
+        "diamond-order-review": ("POST", review_diamond_order),
+        "diamond-order-finish": ("POST", finish_diamond_order),
         "member-sync": ("POST", sync_member_profile),
         "member-directory-sync": ("POST", sync_member_directory),
         "user-search": ("GET", search_users_for_transfer),

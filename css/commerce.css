@@ -91,6 +91,9 @@
 .tournament-details dt,.tournament-room dt{color:var(--muted);font-size:8px;font-weight:700}
 .tournament-details dd,.tournament-room dd{margin:4px 0 0;font-size:12px;font-weight:700;overflow-wrap:anywhere}
 .tournament-room{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:10px;background:var(--paper);color:var(--muted);font-size:10px}
+.tournament-room dd{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.room-copy-button{flex:0 0 auto;min-height:30px;padding:0 9px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:8px;font-weight:700;cursor:pointer}
+.room-copy-button:hover{border-color:var(--red);color:var(--red)}
 .tournament-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}
 .tournament-register{min-height:42px;padding:0 15px;border:0;background:#00c853;color:#fff;font-size:9px;font-weight:700;cursor:pointer}
 .tournament-register:disabled{background:#9e9e9e;cursor:not-allowed}

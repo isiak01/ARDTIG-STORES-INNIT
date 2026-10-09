@@ -128,6 +128,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /diamondOrders/{orderId} {
+      allow get, list: if isAdmin() || (signedIn() && !isBanned() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
     match /topupRequests/{requestId} {
       allow get: if isAdmin() || (signedIn() && !isBanned() && resource.data.uid == request.auth.uid);
       allow list: if isAdmin() || (signedIn() && !isBanned() && resource.data.uid == request.auth.uid);
