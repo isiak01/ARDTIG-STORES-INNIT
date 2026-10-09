@@ -669,8 +669,8 @@ def review_topup_request():
 
         @firestore.transactional
         def review(transaction):
-            request_snapshot = transaction.get(request_ref)
-            profile_snapshot = transaction.get(profile_ref)
+            request_snapshot = request_ref.get(transaction=transaction)
+            profile_snapshot = profile_ref.get(transaction=transaction)
             if not request_snapshot.exists or not profile_snapshot.exists:
                 return "missing"
             request_data = request_snapshot.to_dict() or {}
