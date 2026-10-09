@@ -56,7 +56,10 @@ function renderListing(account) {
     gallery.querySelectorAll('.gallery-thumb').forEach((thumb) => thumb.classList.toggle('is-current', thumb === button));
   }));
   const fields = type === 'diamonds' ? [['DIAMONDS', account.diamonds]] : Object.entries(account).filter(([key,value]) => !['images','likes','likesBy','shares','status','createdAt','logs','uid'].includes(key) && ['string','number','boolean'].includes(typeof value)).map(([key,value]) => [key.replace(/[A-Z]/g, (letter) => ` ${letter}`).toUpperCase(), value]);
-  details.innerHTML = `<p class="eyebrow"><span>${type.toUpperCase()}</span> ACCOUNT DETAILS</p><h1 class="onboard-heading">${safeText(account.prime || `${type.toUpperCase()} ACCOUNT`)} <em>FOR SALE.</em></h1><span class="listing-status ${account.status === 'sold' ? 'is-sold' : ''}">${account.status === 'sold' ? 'SOLD' : 'AVAILABLE'}</span><dl class="detail-list">${fields.map(([label,value]) => `<div><dt>${safeText(label)}</dt><dd>${safeText(value)}</dd></div>`).join('')}<div><dt>PRICE</dt><dd class="price-value">₦${Number(account.price || 0).toLocaleString('en-NG')}</dd></div></dl>`;
+  const listingHeading = type === 'diamonds'
+    ? 'DIAMONDS <em>ON SALE.</em>'
+    : `${safeText(account.prime || `${type.toUpperCase()} ACCOUNT`)} <em>FOR SALE.</em>`;
+  details.innerHTML = `<p class="eyebrow"><span>${type.toUpperCase()}</span> ACCOUNT DETAILS</p><h1 class="onboard-heading">${listingHeading}</h1><span class="listing-status ${account.status === 'sold' ? 'is-sold' : ''}">${account.status === 'sold' ? 'SOLD' : 'AVAILABLE'}</span><dl class="detail-list">${fields.map(([label,value]) => `<div><dt>${safeText(label)}</dt><dd>${safeText(value)}</dd></div>`).join('')}<div><dt>PRICE</dt><dd class="price-value">₦${Number(account.price || 0).toLocaleString('en-NG')}</dd></div></dl>`;
   if (account.status === 'sold') {
     buy.textContent = 'SOLD';
     buy.disabled = true;
