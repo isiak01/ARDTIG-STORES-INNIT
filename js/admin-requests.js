@@ -39,23 +39,27 @@ if (access) {
 async function loadPendingCounts() {
   const { db, collection, query, where, getDocs } = access.firebase;
   await Promise.all([...Object.keys(collections), 'topups', 'transfers'].map(async (type) => {
-    if (type === 'diamonds') {
-      const snapshot = await getDocs(collection(db, 'diamondOrders'));
-      document.querySelector('[data-request-type="diamonds"] .tab-count').textContent = String(snapshot.docs.filter((item) => item.data().orderStatus !== 'completed').length);
-      return;
+    try {
+      if (type === 'diamonds') {
+        const snapshot = await getDocs(collection(db, 'diamondOrders'));
+        document.querySelector('[data-request-type="diamonds"] .tab-count').textContent = String(snapshot.docs.filter((item) => item.data().orderStatus !== 'completed').length);
+        return;
+      }
+      if (type === 'topups') {
+        const snapshot = await getDocs(query(collection(db, 'topupRequests'), where('status', '==', 'pending')));
+        document.querySelector('[data-request-type="topups"] .tab-count').textContent = String(snapshot.size);
+        return;
+      }
+      if (type === 'transfers') {
+        const snapshot = await getDocs(collection(db, 'transfers'));
+        document.querySelector('[data-request-type="transfers"] .tab-count').textContent = String(snapshot.size);
+        return;
+      }
+      const snapshot = await getDocs(query(collection(db, 'payment_requests'), where('accountType', '==', type), where('status', '==', 'pending')));
+      document.querySelector(`[data-request-type="${type}"] .tab-count`).textContent = String(snapshot.size);
+    } catch (error) {
+      console.warn(`Could not load ${type} request count:`, error);
     }
-    if (type === 'topups') {
-      const snapshot = await getDocs(query(collection(db, 'topupRequests'), where('status', '==', 'pending')));
-      document.querySelector('[data-request-type="topups"] .tab-count').textContent = String(snapshot.size);
-      return;
-    }
-    if (type === 'transfers') {
-      const snapshot = await getDocs(collection(db, 'transfers'));
-      document.querySelector('[data-request-type="transfers"] .tab-count').textContent = String(snapshot.size);
-      return;
-    }
-    const snapshot = await getDocs(query(collection(db, 'payment_requests'), where('accountType', '==', type), where('status', '==', 'pending')));
-    document.querySelector(`[data-request-type="${type}"] .tab-count`).textContent = String(snapshot.size);
   }));
 }
 
