@@ -40,7 +40,6 @@ function render(entries) {
     photo.src = entry.photoURL || '/logo.png';
     photo.alt = '';
     avatar.append(photo);
-    if (entry.role === 'admin') avatar.append(createVerifiedBadge({ avatar: true }));
     const name = document.createElement('strong');
     name.className = 'member-username';
     name.textContent = entry.username || 'PLAYER';
@@ -48,7 +47,7 @@ function render(entries) {
     if (index === 0) {
       const crown = document.createElement('span');
       crown.className = 'leaderboard-winner';
-      crown.textContent = 'ARDTIG MUSK 😁';
+      crown.textContent = 'ELON MUSK 😁';
       name.append(crown);
     }
     const identity = document.createElement('div');

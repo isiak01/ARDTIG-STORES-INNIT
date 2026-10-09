@@ -15,7 +15,7 @@ buyMethodDialog.innerHTML = '<button class="dialog-close" type="button" aria-lab
 document.body.append(buyMethodDialog);
 buyMethodDialog.querySelector('.dialog-close').addEventListener('click', () => buyMethodDialog.close());
 document.title = 'Account details | ARDTIG STORES';
-buy.textContent = 'BUY THIS ACCOUNT →';
+buy.textContent = type === 'diamonds' ? 'BUY DIAMONDS →' : 'BUY THIS ACCOUNT →';
 
 buy.addEventListener('click', async (event) => {
   if (buy.disabled || buy.hidden) return;
