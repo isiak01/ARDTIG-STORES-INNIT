@@ -6,6 +6,7 @@ export function initializeNavigation() {
   const toggle = document.querySelector('.menu-toggle');
   const nav = document.querySelector('.primary-nav');
   ensureRoleNavigation(nav);
+  addFooterContactLink();
   const wallet = ensureWalletWidget(document.querySelector('.header-actions'));
   const loggedOut = document.querySelector('#header-auth-controls');
   const memberLinks = document.querySelector('#member-links');
@@ -150,7 +151,7 @@ function ensureInnerHeader() {
   const nav = document.createElement('nav');
   nav.className = 'primary-nav';
   nav.setAttribute('aria-label', 'Main navigation');
-  nav.innerHTML = '<a href="/pages/freefire.html">FREE FIRE</a><a href="/pages/diamonds.html">DIAMONDS</a><a href="/pages/cod.html">COD ACCOUNTS</a><a href="/pages/efootball.html">E FOOTBALL</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button><div class="auth-links" id="header-auth-controls"><a href="/pages/auth.html">LOG IN</a><a href="/pages/auth.html">SIGN UP</a></div><div class="member-links" id="member-links" hidden></div><button class="install-button" id="install-app" type="button" hidden>INSTALL <span aria-hidden="true">↓</span></button>';
+  nav.innerHTML = '<a href="/pages/freefire.html">FREE FIRE</a><a href="/pages/diamonds.html">DIAMONDS</a><a href="/pages/cod.html">COD ACCOUNTS</a><a href="/pages/efootball.html">E FOOTBALL</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><a href="/pages/contact.html">CONTACT</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button><div class="auth-links" id="header-auth-controls"><a href="/pages/auth.html">LOG IN</a><a href="/pages/auth.html">SIGN UP</a></div><div class="member-links" id="member-links" hidden></div><button class="install-button" id="install-app" type="button" hidden>INSTALL <span aria-hidden="true">↓</span></button>';
   header.insertBefore(nav, back);
   const actions = document.createElement('div');
   actions.className = 'header-actions';
@@ -172,8 +173,20 @@ function ensureRoleNavigation(nav) {
   const adminNav = document.createElement('div');
   adminNav.className = 'admin-nav-links';
   adminNav.hidden = true;
-  adminNav.innerHTML = '<a href="/pages/admin/analytics.html">ANALYTICS</a><a href="/pages/admin/requests.html">RECEIPTS</a><a href="/pages/admin/post-freefire.html">POST ACCOUNTS</a><a href="/pages/admin/host-tournament.html">HOST TOURNAMENT</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button>';
+  adminNav.innerHTML = '<a href="/pages/admin/analytics.html">ANALYTICS</a><a href="/pages/admin/requests.html">RECEIPTS</a><a href="/pages/admin/post-freefire.html">POST ACCOUNTS</a><a href="/pages/admin/host-tournament.html">HOST TOURNAMENT</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><a href="/pages/contact.html">CONTACT</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button>';
   nav.insertBefore(adminNav, controls);
+}
+
+function addFooterContactLink() {
+  const footer = document.querySelector('.site-footer');
+  if (!footer || footer.querySelector('.footer-whatsapp-link')) return;
+  const link = document.createElement('a');
+  link.className = 'footer-whatsapp-link';
+  link.href = 'https://wa.me/2349046148857';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = 'CONTACT US ON WHATSAPP';
+  footer.append(link);
 }
 
 function ensureWalletWidget(actions) {

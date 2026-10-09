@@ -51,6 +51,17 @@ html,body{max-width:100%;overflow-x:clip}
 .category-page-count{position:relative;top:auto;right:auto;display:inline-grid;vertical-align:middle;margin-left:8px}
 .tournament-live-toast{position:fixed;right:20px;bottom:20px;z-index:1000;width:min(380px,calc(100vw - 32px));padding:14px 16px;border:1px solid #e10600;background:var(--surface);color:var(--ink);box-shadow:0 10px 30px #0004;font-size:12px;font-weight:700;line-height:1.5}
 .tournament-live-toast:hover{color:#e10600}
+.footer-whatsapp-link{color:#25d366;font-size:9px;font-weight:700;white-space:nowrap}
+.footer-whatsapp-link:hover{color:#1da851}
+.whatsapp-home-fab{position:fixed;right:16px;bottom:16px;z-index:19;width:48px;height:48px;display:grid;place-items:center;border:2px solid #fff;border-radius:50%;background:#25d366;color:#fff;box-shadow:0 4px 14px #0004;font-size:25px;transition:transform 160ms ease,background 160ms ease}
+.whatsapp-home-fab:hover{transform:translateY(-2px);background:#1da851}
+.contact-shell{max-width:860px}
+.contact-actions{display:grid;gap:12px;width:min(520px,100%);margin:24px 0}
+.contact-actions .form-button{min-height:54px;justify-content:center;gap:10px}
+.contact-whatsapp-button{background:#25d366!important;color:#fff!important}
+.contact-whatsapp-button:hover{background:#1da851!important}
+.contact-note{max-width:620px;padding:15px 17px;border-left:3px solid #25d366;background:var(--surface);font-size:12px;line-height:1.7}
+@media(max-width:760px){.whatsapp-home-fab{right:13px;bottom:13px;width:46px;height:46px}.footer-whatsapp-link{font-size:8px}}
 .banned-panel h1{margin:0;color:#f00;font:900 clamp(36px,8vw,64px)/1 var(--display)}
 .banned-panel p{margin:18px 0 26px;font-size:14px;line-height:1.7}
 .banned-panel button{min-height:44px;padding:0 22px;border:0;background:#f00;color:#fff;font-weight:700;cursor:pointer}
