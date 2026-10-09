@@ -7,6 +7,10 @@ const names = { freefire: 'FREE FIRE', cod: 'CALL OF DUTY', efootball: 'E FOOTBA
 const grid = document.querySelector('#account-grid');
 const status = document.querySelector('#category-status');
 const search = document.querySelector('#listing-search');
+if (categoryId === 'diamonds') {
+  search.placeholder = 'Search price, diamond amount, or package';
+  search.setAttribute('aria-label', 'Search diamond listings by price, amount, or package');
+}
 let entries = [];
 let availableCount = 0;
 let voteSummary = { count: 0, voted: false };
@@ -48,8 +52,7 @@ function render(list) {
     grid.querySelector('#empty-vote')?.addEventListener('click', toggleVote);
     return;
   }
-  grid.innerHTML = '';
-  list.forEach((entry) => grid.append(createCard(entry)));
+  grid.replaceChildren(...list.map((entry) => createCard(entry)));
 }
 
 function createCard(account) {
@@ -58,9 +61,25 @@ function createCard(account) {
   const image = categoryId === 'diamonds' ? account.photo : account.images?.[0];
   const title = categoryId === 'freefire' ? `${account.prime || 'FREE FIRE'} / LEVEL ${account.level || '—'}` : categoryId === 'diamonds' ? `${Number(account.diamonds || 0).toLocaleString()} DIAMONDS` : `${names[categoryId]} / LEVEL ${account.level || '—'}`;
   card.innerHTML = `<a class="account-image" href="/pages/view.html?id=${encodeURIComponent(account.id)}&type=${categoryId}">${image ? `<img src="${escapeAttribute(image)}" alt="${escapeText(title)}" loading="lazy">` : '<span>IMAGE PENDING</span>'}<i>AVAILABLE</i></a><div class="account-card-content"><div class="account-title-line"><h3>${escapeText(title)}</h3><span class="card-social-actions"><span class="card-likes">♡ ${Number(account.likes || 0)}</span><button class="share-button" type="button" aria-label="Share this account, ${Number(account.shares || 0)} shares"><span aria-hidden="true">↗</span><b data-share-count>${Number(account.shares || 0)}</b></button></span></div><dl class="account-facts">${[['PRIME',account.prime],['LEVEL',account.level],['PLAYERS',account.players],['DIAMONDS',account.diamonds],['MYTHIC GUNS',account.mythicGuns],['EMOTES',account.emotes],['SKINS',account.skins],['CP',account.cp],['EVO GUNS',account.evoGuns],['HEROIC CS',account.heroicCS],['HEROIC BR',account.heroicBR],['THIS MONTH BOOYAH PASS',account.booyahPass]].filter(([,value]) => value !== undefined && value !== '').slice(0,4).map(([label,value]) => `<div><dt>${label}</dt><dd>${escapeText(value)}</dd></div>`).join('')}<div><dt>PRICE</dt><dd class="price-value">₦${Number(account.price || 0).toLocaleString('en-NG')}</dd></div></dl><a class="card-view-link" href="/pages/view.html?id=${encodeURIComponent(account.id)}&type=${categoryId}">VIEW ACCOUNT <span>↗</span></a></div>`;
-  if (categoryId === 'diamonds') card.querySelector('.card-view-link').firstChild.textContent = 'BUY DIAMONDS ';
+  if (categoryId === 'diamonds') {
+    card.querySelector('.card-view-link').firstChild.textContent = 'BUY DIAMONDS ';
+    appendPackageFact(card, account.packageName);
+  }
   bindShareButton(card.querySelector('.share-button'), { accountId: account.id, accountType: categoryId, title });
   return card;
+}
+
+function appendPackageFact(card, packageName) {
+  if (typeof packageName !== 'string' || !packageName.trim()) return;
+  const facts = card.querySelector('.account-facts');
+  const price = [...facts.children].find((item) => item.querySelector('dt')?.textContent === 'PRICE');
+  const row = document.createElement('div');
+  const label = document.createElement('dt');
+  const value = document.createElement('dd');
+  label.textContent = 'PACKAGE';
+  value.textContent = packageName.trim();
+  row.append(label, value);
+  price?.after(row);
 }
 
 async function toggleVote() {

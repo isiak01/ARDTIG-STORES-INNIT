@@ -148,6 +148,9 @@ def public_user_summary(user_id, profile):
 
 
 def diamond_package(listing):
+    package_name = listing.get("packageName")
+    if isinstance(package_name, str) and package_name.strip():
+        return package_name.strip()[:80]
     amount = listing.get("diamonds")
     if isinstance(amount, (int, float)) and not isinstance(amount, bool):
         return f"{amount:,.0f} diamonds"

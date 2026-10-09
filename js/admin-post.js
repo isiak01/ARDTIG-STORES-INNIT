@@ -4,7 +4,7 @@ const settings = {
   freefire: { collection: 'freefire_accounts', secret: true, fields: ['prime', 'level', 'evoGuns', 'heroicCS', 'heroicBR', 'booyahPass', 'diamonds', 'price'] },
   cod: { collection: 'cod_accounts', secret: true, fields: ['level', 'mythicGuns', 'emotes', 'skins', 'cp', 'price'] },
   efootball: { collection: 'efootball_accounts', secret: true, fields: ['level', 'players', 'price'] },
-  diamonds: { collection: 'diamonds', secret: false, fields: ['diamonds', 'price'] },
+  diamonds: { collection: 'diamonds', secret: false, fields: ['diamonds', 'price', 'packageName'] },
 };
 const form = document.querySelector('#post-form');
 const category = document.body.dataset.postCategory;

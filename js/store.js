@@ -14,11 +14,13 @@ export function initializeStorefront() {
   setupCategoryCountBadges(tabs);
   const loginDialog = document.querySelector('#login-dialog');
   const featuredLink = document.querySelector('.view-all');
+  const browseLink = document.querySelector('.grid-footer a');
 
   async function showCategory(categoryId, maxItems = 2) {
     const category = categories[categoryId];
     featuredLink.href = category.page;
     featuredLink.innerHTML = `${category.label} <span>↗</span>`;
+    browseLink.href = category.page;
     grid.innerHTML = '<p class="loading-state">LOADING ACCOUNTS…</p>';
     try {
       const { db, collection, query, where, limit, getDocs, doc, getDoc } = await getFirebase();
@@ -79,7 +81,10 @@ function createAccountCard(id, account, categoryId, userId) {
   const price = Number(account.price || 0).toLocaleString('en-NG');
   const title = categoryId === 'freefire' ? `${account.prime || 'FREE FIRE'} / LEVEL ${account.level || '—'}` : categoryId === 'diamonds' ? `${Number(account.diamonds || 0).toLocaleString()} DIAMONDS` : `${categoryId === 'cod' ? 'CALL OF DUTY' : 'E FOOTBALL'} / LEVEL ${account.level || '—'}`;
   article.innerHTML = `<a class="account-image" href="/pages/view.html?id=${encodeURIComponent(id)}&type=${encodeURIComponent(categoryId)}">${image ? `<img src="${escapeAttribute(image)}" alt="${escapeAttribute(title)}" loading="lazy">` : '<span>IMAGE PENDING</span>'}<i>AVAILABLE</i></a><div class="account-card-content"><div class="account-title-line"><h3>${escapeText(title)}</h3><span class="card-social-actions"><button class="like-button" type="button" aria-label="Like this account"><span>♡</span><b>${Number(account.likes || 0)}</b></button><button class="share-button" type="button" aria-label="Share this account, ${Number(account.shares || 0)} shares"><span aria-hidden="true">↗</span><b data-share-count>${Number(account.shares || 0)}</b></button></span></div><dl class="account-facts">${account.prime ? `<div><dt>PRIME</dt><dd>${escapeText(account.prime)}</dd></div>` : ''}${account.level ? `<div><dt>LEVEL</dt><dd>${escapeText(account.level)}</dd></div>` : ''}${account.diamonds ? `<div><dt>DIAMONDS</dt><dd>${Number(account.diamonds).toLocaleString()}</dd></div>` : ''}<div><dt>PRICE</dt><dd class="price-value">₦${price}</dd></div></dl><a class="card-view-link" href="/pages/view.html?id=${encodeURIComponent(id)}&type=${encodeURIComponent(categoryId)}">VIEW ACCOUNT <span>↗</span></a></div>`;
-  if (categoryId === 'diamonds') article.querySelector('.card-view-link').firstChild.textContent = 'BUY DIAMONDS ';
+  if (categoryId === 'diamonds') {
+    article.querySelector('.card-view-link').firstChild.textContent = 'BUY DIAMONDS ';
+    appendPackageFact(article, account.packageName);
+  }
   bindShareButton(article.querySelector('.share-button'), { accountId: id, accountType: categoryId, title });
   const likeButton = article.querySelector('.like-button');
   const alreadyLiked = userId && (account.likesBy || []).includes(userId);
@@ -122,6 +127,19 @@ function createAccountCard(id, account, categoryId, userId) {
     }
   });
   return article;
+}
+
+function appendPackageFact(card, packageName) {
+  if (typeof packageName !== 'string' || !packageName.trim()) return;
+  const facts = card.querySelector('.account-facts');
+  const price = [...facts.children].find((item) => item.querySelector('dt')?.textContent === 'PRICE');
+  const row = document.createElement('div');
+  const label = document.createElement('dt');
+  const value = document.createElement('dd');
+  label.textContent = 'PACKAGE';
+  value.textContent = packageName.trim();
+  row.append(label, value);
+  price?.after(row);
 }
 
 async function toggleVote(categoryId, refreshCategory) {

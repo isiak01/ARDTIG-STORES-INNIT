@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /pages/admin/
+Disallow: /pages/auth.html
+Disallow: /pages/onboarding.html
+Disallow: /pages/payment.html
+Disallow: /pages/myaccounts.html
+Disallow: /pages/sold.html
+Disallow: /pages/wallet-checkout.html
+Disallow: /login.html
+Disallow: /signup.html
+Disallow: /topup.html
+
+Sitemap: https://ardtig-stores.vercel.app/sitemap.xml

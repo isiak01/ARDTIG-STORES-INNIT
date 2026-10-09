@@ -21,7 +21,7 @@ async function loadCheckout() {
     const listing = await getDoc(doc(session.db, collectionByType[accountType], accountId));
     if (!listing.exists() || listing.data().status !== 'available') throw new Error('This listing is no longer available.');
     account = listing.data();
-    document.querySelector('#wallet-listing-name').textContent = account.prime || (accountType === 'diamonds' ? `${Number(account.diamonds || 0).toLocaleString()} diamonds` : `${accountType.toUpperCase()} account`);
+    document.querySelector('#wallet-listing-name').textContent = account.prime || (accountType === 'diamonds' ? account.packageName || `${Number(account.diamonds || 0).toLocaleString()} diamonds` : `${accountType.toUpperCase()} account`);
     document.querySelector('#wallet-price').textContent = formatNaira(account.price);
     document.querySelector('#wallet-manual-link').href = `/pages/payment.html?id=${encodeURIComponent(accountId)}&type=${encodeURIComponent(accountType)}`;
     if (accountType === 'diamonds') document.querySelector('#wallet-diamond-fields').hidden = false;
