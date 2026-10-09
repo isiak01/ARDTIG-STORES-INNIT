@@ -900,7 +900,7 @@ def add_tournament_room():
 
         @firestore.transactional
         def open_room(transaction):
-            snapshot = transaction.get(tournament_ref)
+            snapshot = tournament_ref.get(transaction=transaction)
             if not snapshot.exists:
                 return "missing"
             if (snapshot.to_dict() or {}).get("status") != "upcoming":

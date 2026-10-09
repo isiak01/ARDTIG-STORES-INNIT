@@ -159,7 +159,7 @@ async function finishTournament(tournamentId, button) {
 }
 
 function showRoomDialog(tournament) {
-  const dialog = createDialog('ADD ROOM DETAILS', '<label class="field-label">ROOM CODE<input class="text-input" name="roomCode" required maxlength="80"></label><label class="field-label">ROOM PASSWORD<input class="text-input" name="roomPassword" required maxlength="80"></label><button class="form-button" type="submit">SAVE AND OPEN ROOM</button>');
+  const dialog = createDialog('ADD ROOM DETAILS', '<label class="field-label">ROOM CODE<input class="text-input" name="roomCode" required maxlength="80"></label><label class="field-label">ROOM PASSWORD<input class="text-input" name="roomPassword" required maxlength="80"></label><button class="form-button" type="submit">SAVE DETAILS</button>');
   dialog.querySelector('form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
