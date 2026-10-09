@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a"><title>Set up your account | ARDTIG STORES</title>
+  <link rel="icon" href="/logo.png" type="image/png"><link rel="stylesheet" href="/css/pages.css">
+  <script type="module" src="/js/onboarding.js"></script>
+  <script type="module" src="/js/page-shell.js"></script>
+</head>
+<body>
+  <header class="page-topbar"><a class="brand" href="/"><img src="/logo.png" alt="" width="42" height="42"><span><b>ARDTIG</b><strong>STORES</strong></span></a><a class="back-link" href="/"><span>←</span> BACK TO STORE</a></header>
+  <main class="page-shell"><form class="onboard-wrap" id="onboarding-form">
+    <div class="step-indicators" aria-label="Account setup progress"><span class="step-indicator is-current" data-step-indicator="1">01</span><span class="step-connector"></span><span class="step-indicator" data-step-indicator="2">02</span><span class="step-connector"></span><span class="step-indicator" data-step-indicator="3">03</span></div>
+    <section data-onboarding-step="1"><p class="eyebrow"><span>01 / IDENTITY</span> CHOOSE YOUR HANDLE</p><h1 class="onboard-heading">Create a username to continue to <em>ARDTIG STORES.</em></h1><p class="onboard-subtitle">Use 3 to 20 lowercase letters and numbers. Your username will appear with your purchase requests.</p>
+      <label class="field-label" for="username">USERNAME</label><input class="text-input" id="username" name="username" autocomplete="username" minlength="3" maxlength="20" pattern="[a-z0-9]{3,20}" placeholder="yourusername" required><span class="field-note" id="username-status" role="status" aria-live="polite">Availability is checked as you type.</span>
+      <div class="onboard-actions"><button class="form-button" id="username-next" type="button" disabled>NEXT STEP →</button><button class="suggest-button" id="suggest-username" type="button">SUGGEST A USERNAME</button></div>
+    </section>
+    <section data-onboarding-step="2" hidden><p class="eyebrow"><span>02 / PROFILE</span> MAKE IT YOURS</p><h1 class="onboard-heading">Add a profile <em>photo.</em></h1><p class="onboard-subtitle">Choose a JPG, PNG or WEBP image up to 5 MB. Your image is uploaded securely.</p>
+      <div class="photo-upload"><img class="profile-preview" id="profile-preview" src="/logo.png" alt="Profile photo preview"><div><label class="field-label" for="profile-photo">PROFILE PHOTO</label><input class="upload-input" id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" required><p class="field-note">Maximum file size: 5 MB</p></div></div>
+      <div class="onboard-actions"><button class="form-button secondary" type="button" data-back-step="1">← BACK</button><button class="form-button" id="upload-photo" type="button" disabled>UPLOAD PHOTO</button><button class="form-button" id="photo-next" type="button" disabled>NEXT STEP →</button></div>
+    </section>
+    <section data-onboarding-step="3" hidden><p class="eyebrow"><span>03 / AGREEMENT</span> ALMOST IN</p><h1 class="onboard-heading">Play fair. Shop <em>smart.</em></h1><p class="onboard-subtitle">Please review and accept the store terms before creating your account.</p>
+      <label class="terms-check"><input id="terms-accepted" type="checkbox" required><span>I accept the <a href="/pages/terms.html" target="_blank" rel="noopener">terms and conditions</a> of ARDTIG STORES.</span></label>
+      <div class="onboard-actions"><button class="form-button secondary" type="button" data-back-step="2">← BACK</button><button class="form-button" id="finish-onboarding" type="submit" disabled>CONTINUE TO ARDTIG STORES →</button></div>
+    </section>
+    <p class="form-message" id="onboarding-message" role="status" aria-live="polite" hidden></p>
+  </form></main>
+  <footer class="site-footer compact-footer"><a class="brand" href="/"><img src="/logo.png" alt="" width="38" height="38"><span><b>ARDTIG</b><strong>STORES</strong></span></a><span>© 2026 ARDTIG STORES</span></footer>
+</body>
+</html>

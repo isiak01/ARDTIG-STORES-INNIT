@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isBanned() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false) == true;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && !isBanned()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function hasApprovedPurchase(accountId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/user_purchases/$(request.auth.uid + '_' + accountId))
+        && get(/databases/$(database)/documents/user_purchases/$(request.auth.uid + '_' + accountId)).data.status == 'approved';
+    }
+
+    function validLikeUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let previousLikes = before.get('likes', 0);
+      let previousLikesBy = before.get('likesBy', []);
+      return signedIn()
+        && !isBanned()
+        && before.status == 'available'
+        && after.diff(before).affectedKeys().hasOnly(['likes', 'likesBy'])
+        && previousLikes is int
+        && after.likes is int
+        && previousLikesBy is list
+        && after.likesBy is list
+        && after.likes >= 0
+        && ((request.auth.uid in after.likesBy
+            && !(request.auth.uid in previousLikesBy)
+            && after.likes == previousLikes + 1)
+          || (!(request.auth.uid in after.likesBy)
+            && request.auth.uid in previousLikesBy
+            && after.likes == previousLikes - 1));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.role == 'user'
+        && request.resource.data.walletBalance == 0
+        && request.resource.data.totalTopups == 0
+        && request.resource.data.banned == false
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'username', 'photoURL', 'role', 'walletBalance', 'totalTopups', 'banned', 'createdAt']);
+      allow update: if isOwner(userId)
+        && !isBanned()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL', 'username']);
+      allow delete: if isAdmin();
+    }
+
+    match /usernames/{username} {
+      allow get: if signedIn() && !isBanned();
+      allow list: if false;
+      allow create: if signedIn() && !isBanned()
+        && request.resource.data.uid == request.auth.uid
+        && username.matches('^[a-z0-9]{3,20}$');
+      allow delete: if signedIn() && !isBanned() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /public_members/{userId} {
+      allow get, list: if signedIn() && !isBanned();
+      allow create, update, delete: if false;
+    }
+
+    match /freefire_accounts/{accountId} {
+      allow read: if !signedIn() || !isBanned();
+      allow create: if isAdmin() && !request.resource.data.keys().hasAny(['logs', 'password', 'email']);
+      allow delete: if isAdmin();
+      allow update: if (isAdmin() && !request.resource.data.keys().hasAny(['logs', 'password', 'email'])) || validLikeUpdate();
+    }
+
+    match /cod_accounts/{accountId} {
+      allow read: if !signedIn() || !isBanned();
+      allow create: if isAdmin() && !request.resource.data.keys().hasAny(['logs', 'password', 'email']);
+      allow delete: if isAdmin();
+      allow update: if (isAdmin() && !request.resource.data.keys().hasAny(['logs', 'password', 'email'])) || validLikeUpdate();
+    }
+
+    match /efootball_accounts/{accountId} {
+      allow read: if !signedIn() || !isBanned();
+      allow create: if isAdmin() && !request.resource.data.keys().hasAny(['logs', 'password', 'email']);
+      allow delete: if isAdmin();
+      allow update: if (isAdmin() && !request.resource.data.keys().hasAny(['logs', 'password', 'email'])) || validLikeUpdate();
+    }
+
+    match /diamonds/{productId} {
+      allow read: if !signedIn() || !isBanned();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || validLikeUpdate();
+    }
+
+    match /sold_accounts/{accountId} {
+      allow read: if !signedIn() || !isBanned();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /account_secrets/{secretId} {
+      allow get: if isAdmin() || (signedIn() && !isBanned() && resource.data.uid == request.auth.uid && hasApprovedPurchase(resource.data.accountId));
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /user_purchases/{purchaseId} {
+      allow get, list: if isAdmin() || (signedIn() && !isBanned() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /payment_requests/{requestId} {
+      allow create: if false;
+      allow get, list: if isAdmin() || (signedIn() && !isBanned() && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /topupRequests/{requestId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /votes/{categoryId} {
+      allow get, list: if signedIn() && !isBanned();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /notifications/{userId}/items/{itemId} {
+      allow read: if (isOwner(userId) && !isBanned()) || isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if (isOwner(userId) && !isBanned()) || isAdmin();
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if signedIn() && !isBanned();
+      allow create, update, delete: if false;
+    }
+
+    match /tournament_registrations/{tournamentId}/registrants/{userId} {
+      allow read, write: if false;
+    }
+
+    match /config/{configId} {
+      allow read: if signedIn() && !isBanned();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

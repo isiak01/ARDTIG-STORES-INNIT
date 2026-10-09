@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a"><title>Wallet checkout | ARDTIG STORES</title>
+  <link rel="icon" href="/logo.png" type="image/png">
+  <link rel="stylesheet" href="/css/pages.css"><link rel="stylesheet" href="/css/commerce.css">
+  <script type="module" src="/js/wallet-checkout.js"></script><script type="module" src="/js/page-shell.js"></script>
+</head>
+<body>
+  <header class="page-topbar"><a class="brand" href="/"><img src="/logo.png" alt="" width="42" height="42"><span><b>ARDTIG</b><strong>STORES</strong></span></a><a class="back-link" href="/"><span>←</span> BACK TO STORE</a></header>
+  <main class="page-shell wallet-shell">
+    <p class="eyebrow"><span>SECURE CHECKOUT</span> ARDTIG BALANCE</p><h1 class="onboard-heading">WALLET <em>PAYMENT.</em></h1>
+    <p class="page-message" data-page-message role="status" aria-live="polite"></p>
+    <section class="wallet-checkout-panel" id="wallet-checkout-panel" hidden>
+      <p class="wallet-listing-name" id="wallet-listing-name"></p>
+      <div class="wallet-checkout-line"><span>ACCOUNT PRICE</span><strong id="wallet-price">₦0</strong></div>
+      <div class="wallet-checkout-line"><span>YOUR BALANCE</span><strong id="wallet-checkout-balance">₦0</strong></div>
+      <form id="wallet-purchase-form">
+        <div id="wallet-diamond-fields" hidden>
+          <label class="field-label" for="wallet-player-uid">GAME UID</label><input class="text-input" id="wallet-player-uid" inputmode="numeric" autocomplete="off" placeholder="Enter your Free Fire UID">
+          <label class="field-label" for="wallet-game-name">GAME NAME</label><input class="text-input" id="wallet-game-name" autocomplete="off" placeholder="Enter your in-game name">
+        </div>
+        <p class="wallet-insufficient" id="wallet-insufficient" hidden>Insufficient balance. Please topup wallet or pay with manual transfer.</p>
+        <button class="wallet-pay-button" id="wallet-pay-button" type="submit" disabled>PAY WITH BALANCE</button>
+        <div class="wallet-alternatives" id="wallet-alternatives" hidden><a class="form-button" href="/topup.html">TOP UP WALLET</a><a class="form-button secondary" id="wallet-manual-link">PAY WITH MANUAL TRANSFER</a></div>
+        <p class="page-message" id="wallet-checkout-message" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+    <section class="wallet-purchase-success" id="wallet-purchase-success" hidden></section>
+  </main>
+  <footer class="site-footer compact-footer"><a class="brand" href="/"><img src="/logo.png" alt="" width="38" height="38"><span><b>ARDTIG</b><strong>STORES</strong></span></a><span>© 2026 ARDTIG STORES</span></footer>
+</body>
+</html>

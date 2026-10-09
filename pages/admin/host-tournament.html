@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a"><title>Host tournament | ARDTIG STORES</title>
+  <link rel="icon" href="/logo.png" type="image/png">
+  <link rel="stylesheet" href="/css/pages.css"><link rel="stylesheet" href="/css/admin.css">
+  <script type="module" src="/js/host-tournament.js"></script><script type="module" src="/js/page-shell.js"></script>
+</head>
+<body>
+  <header class="page-topbar"><a class="brand" href="/"><img src="/logo.png" alt="" width="42" height="42"><span><b>ARDTIG</b><strong>STORES</strong></span></a><a class="back-link" href="/"><span>←</span> BACK</a></header>
+  <main class="page-shell admin-shell">
+    <p class="eyebrow"><span>ADMIN / COMMUNITY</span> HOST TOURNAMENT</p><h1 class="onboard-heading">SET THE <em>LOBBY.</em></h1>
+    <nav class="admin-nav"><a href="/pages/admin/analytics.html">DASHBOARD</a><a href="/pages/admin/requests.html">ORDERS</a><a href="/pages/admin/post-freefire.html">MANAGE ACCOUNTS</a><a class="is-active" href="/pages/admin/host-tournament.html">HOST TOURNAMENT</a></nav>
+    <p class="admin-message" id="host-message" role="status" aria-live="polite" hidden></p>
+    <form class="admin-form tournament-host-form" id="tournament-form">
+      <div class="admin-grid">
+        <label class="admin-field"><span class="field-label">GAME</span><select name="game" required><option value="Free Fire">Free Fire</option></select></label>
+        <label class="admin-field"><span class="field-label">MAP</span><input name="map" maxlength="80" required></label>
+        <label class="admin-field"><span class="field-label">NUMBER OF PLAYERS NEEDED</span><input name="playersNeeded" type="number" min="1" step="1" required></label>
+        <label class="admin-field"><span class="field-label">MATCH TYPE</span><input name="matchType" maxlength="60" placeholder="e.g. Battle Royale" required></label>
+        <label class="admin-field"><span class="field-label">TEAM SIZE</span><select name="teamSize" required><option value="">Select team size</option><option>Solo</option><option>Duo</option><option>Squad</option></select></label>
+        <label class="admin-field"><span class="field-label">MATCH TIME</span><input name="matchTime" type="datetime-local" required></label>
+        <label class="admin-field"><span class="field-label">PRICE</span><input name="price" type="number" min="0" step="1" required></label>
+        <label class="admin-field"><span class="field-label">PRICE TYPE</span><input name="priceType" maxlength="40" placeholder="e.g. Per team" required></label>
+      </div>
+      <label class="admin-field"><span class="field-label">TOURNAMENT PREVIEW IMAGE</span><input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required></label>
+      <button class="form-button" type="submit">POST TOURNAMENT</button>
+    </form>
+  </main>
+  <footer class="site-footer compact-footer"><a class="brand" href="/"><img src="/logo.png" alt="" width="38" height="38"><span><b>ARDTIG</b><strong>STORES</strong></span></a><span>ADMIN CONSOLE</span></footer>
+</body>
+</html>
