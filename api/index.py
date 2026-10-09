@@ -154,6 +154,86 @@ def diamond_package(listing):
     return str(listing.get("prime") or "Free Fire diamonds")
 
 
+def admin_receipt_document(snapshot):
+    data = snapshot.to_dict() or {}
+    if isinstance(data.get("accountType"), str):
+        data["accountType"] = re.sub(r"[\s_-]+", "", data["accountType"].casefold())
+    for key, value in data.items():
+        if isinstance(value, datetime):
+            data[key] = value.isoformat()
+    data["id"] = snapshot.id
+    return data
+
+
+@app.get("/api/admin-receipts")
+@authenticated
+def list_admin_receipts():
+    category = request.args.get("category", "")
+    status = request.args.get("status", "pending")
+    categories = {"freefire", "cod", "efootball", "diamonds", "topups", "transfers", "counts"}
+    statuses = {"pending", "approved", "rejected", "cancelled"}
+    if category not in categories or (category not in {"counts", "transfers"} and status not in statuses):
+        return jsonify(error="Choose a valid receipt category and status."), 400
+    try:
+        db = database()
+        if not caller_is_admin(db, request.user_claims["uid"]):
+            return jsonify(error="Admin access is required."), 403
+
+        payment_requests = list(db.collection("payment_requests").stream()) if category in {"counts", "diamonds"} else None
+        if category == "counts":
+            counts = {key: 0 for key in ("freefire", "cod", "efootball", "diamonds", "topups", "transfers")}
+            for snapshot in payment_requests:
+                payment = snapshot.to_dict() or {}
+                account_type = re.sub(r"[\s_-]+", "", str(payment.get("accountType", "")).casefold())
+                if str(payment.get("status", "")).casefold() == "pending" and account_type in counts:
+                    counts[account_type] += 1
+            orders = db.collection("diamondOrders").stream()
+            counts["diamonds"] += sum(1 for order in orders if (order.to_dict() or {}).get("orderStatus") != "completed")
+            counts["topups"] = sum(1 for _ in db.collection("topupRequests").where("status", "==", "pending").stream())
+            counts["transfers"] = sum(1 for _ in db.collection("transfers").stream())
+            return jsonify(counts=counts), 200
+
+        if category in {"freefire", "cod", "efootball"}:
+            if payment_requests is None:
+                payment_requests = list(db.collection("payment_requests").where("status", "==", status).stream())
+            requests = []
+            for snapshot in payment_requests:
+                payment = snapshot.to_dict() or {}
+                account_type = re.sub(r"[\s_-]+", "", str(payment.get("accountType", "")).casefold())
+                if account_type == category and str(payment.get("status", "")).casefold() == status:
+                    requests.append(admin_receipt_document(snapshot))
+            requests.sort(key=lambda item: str(item.get("createdAt", "")), reverse=True)
+            return jsonify(requests=requests), 200
+
+        if category == "diamonds":
+            orders = [
+                admin_receipt_document(snapshot)
+                for snapshot in db.collection("diamondOrders").stream()
+                if (snapshot.to_dict() or {}).get("orderStatus") != "completed"
+            ]
+            legacy_requests = [
+                admin_receipt_document(snapshot)
+                for snapshot in payment_requests
+                if re.sub(r"[\s_-]+", "", str((snapshot.to_dict() or {}).get("accountType", "")).casefold()) == "diamonds"
+            ]
+            orders.sort(key=lambda item: str(item.get("createdAt", "")), reverse=True)
+            legacy_requests.sort(key=lambda item: str(item.get("createdAt", "")), reverse=True)
+            return jsonify(orders=orders, legacyRequests=legacy_requests), 200
+
+        if category == "topups":
+            snapshots = db.collection("topupRequests").where("status", "==", status).stream()
+            requests = [admin_receipt_document(snapshot) for snapshot in snapshots]
+            requests.sort(key=lambda item: str(item.get("createdAt", "")), reverse=True)
+            return jsonify(requests=requests), 200
+
+        transfers = [admin_receipt_document(snapshot) for snapshot in db.collection("transfers").stream()]
+        transfers.sort(key=lambda item: str(item.get("createdAt", "")), reverse=True)
+        return jsonify(transfers=transfers), 200
+    except Exception:
+        app.logger.exception("Admin receipt listing failed")
+        return jsonify(error="Receipts could not be loaded."), 500
+
+
 @app.get("/api/config")
 def public_config():
     project_id = os.getenv("FIREBASE_PROJECT_ID", "")
@@ -1207,6 +1287,7 @@ def vercel_api_dispatch():
         "check-username": ("POST", check_username),
         "upload": ("POST", upload_image),
         "payment-request": ("POST", create_payment_request),
+        "admin-receipts": ("GET", list_admin_receipts),
         "vote": ("POST", toggle_category_vote),
         "votes": ("GET", category_vote_summary),
         "share": ("POST", record_listing_share),

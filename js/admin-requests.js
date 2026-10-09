@@ -37,30 +37,16 @@ if (access) {
 }
 
 async function loadPendingCounts() {
-  const { db, collection, query, where, getDocs } = access.firebase;
-  await Promise.all([...Object.keys(collections), 'topups', 'transfers'].map(async (type) => {
-    try {
-      if (type === 'diamonds') {
-        const snapshot = await getDocs(collection(db, 'diamondOrders'));
-        document.querySelector('[data-request-type="diamonds"] .tab-count').textContent = String(snapshot.docs.filter((item) => item.data().orderStatus !== 'completed').length);
-        return;
-      }
-      if (type === 'topups') {
-        const snapshot = await getDocs(query(collection(db, 'topupRequests'), where('status', '==', 'pending')));
-        document.querySelector('[data-request-type="topups"] .tab-count').textContent = String(snapshot.size);
-        return;
-      }
-      if (type === 'transfers') {
-        const snapshot = await getDocs(collection(db, 'transfers'));
-        document.querySelector('[data-request-type="transfers"] .tab-count').textContent = String(snapshot.size);
-        return;
-      }
-      const snapshot = await getDocs(query(collection(db, 'payment_requests'), where('accountType', '==', type), where('status', '==', 'pending')));
-      document.querySelector(`[data-request-type="${type}"] .tab-count`).textContent = String(snapshot.size);
-    } catch (error) {
-      console.warn(`Could not load ${type} request count:`, error);
-    }
-  }));
+  try {
+    const { counts } = await fetchAdminReceipts('counts');
+    Object.entries(counts).forEach(([type, count]) => {
+      const badge = document.querySelector(`[data-request-type="${type}"] .tab-count`);
+      if (badge) badge.textContent = String(count);
+    });
+  } catch (error) {
+    message.hidden = false;
+    message.textContent = error.message || 'Receipt counts could not load.';
+  }
 }
 
 async function loadRequests() {
@@ -74,15 +60,13 @@ async function loadRequests() {
   if (activeType === 'transfers') return loadTransfers();
   panel.innerHTML = '<p class="loading-state">LOADING REQUESTS…</p>';
   try {
-    const { db, collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp } = access.firebase;
-    const snapshot = await getDocs(query(collection(db, 'payment_requests'), where('accountType', '==', activeType), where('status', '==', activeStatus)));
-    if (activeStatus === 'pending') document.querySelector(`[data-request-type="${activeType}"] .tab-count`).textContent = String(snapshot.size);
-    if (snapshot.empty) {
+    const { requests } = await fetchAdminReceipts(activeType, activeStatus);
+    if (activeStatus === 'pending') document.querySelector(`[data-request-type="${activeType}"] .tab-count`).textContent = String(requests.length);
+    if (!requests.length) {
       panel.innerHTML = `<div class="empty-market"><div><span class="stock-label"><i></i> QUEUE CLEAR</span><h3>NO ${activeStatus.toUpperCase()}<br>REQUESTS.</h3></div></div>`;
       return;
     }
-    panel.innerHTML = '';
-    snapshot.forEach((item) => panel.append(createRequestCard(item.id, item.data())));
+    panel.replaceChildren(...requests.map((request) => createRequestCard(request.id, request)));
     panel.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', () => handleAction(button.dataset.action, button.dataset.requestId)));
   } catch (error) {
     message.hidden = false;
@@ -93,15 +77,13 @@ async function loadRequests() {
 async function loadTopupRequests() {
   panel.innerHTML = '<p class="loading-state">LOADING TOP-UPS…</p>';
   try {
-    const { db, collection, query, where, getDocs } = access.firebase;
-    const snapshot = await getDocs(query(collection(db, 'topupRequests'), where('status', '==', activeStatus)));
-    if (activeStatus === 'pending') document.querySelector('[data-request-type="topups"] .tab-count').textContent = String(snapshot.size);
-    if (snapshot.empty) {
+    const { requests } = await fetchAdminReceipts('topups', activeStatus);
+    if (activeStatus === 'pending') document.querySelector('[data-request-type="topups"] .tab-count').textContent = String(requests.length);
+    if (!requests.length) {
       panel.innerHTML = `<div class="empty-market"><div><span class="stock-label"><i></i> QUEUE CLEAR</span><h3>NO ${activeStatus.toUpperCase()} TOP-UPS.</h3></div></div>`;
       return;
     }
     panel.replaceChildren();
-    const requests = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
     requests.sort((left, right) => dateValue(right.createdAt) - dateValue(left.createdAt));
     requests.forEach((topup) => panel.append(createTopupCard(topup)));
     panel.querySelectorAll('[data-topup-action]').forEach((button) => button.addEventListener('click', () => reviewTopup(button.dataset.topupAction, button.dataset.requestId, button)));
@@ -114,14 +96,13 @@ async function loadTopupRequests() {
 async function loadTransfers() {
   panel.innerHTML = '<p class="loading-state">LOADING TRANSFERS…</p>';
   try {
-    const { db, collection, getDocs, query, orderBy } = access.firebase;
-    const snapshot = await getDocs(query(collection(db, 'transfers'), orderBy('createdAt', 'desc')));
-    if (snapshot.empty) {
+    const { transfers } = await fetchAdminReceipts('transfers');
+    if (!transfers.length) {
       panel.innerHTML = '<div class="empty-market"><div><span class="stock-label"><i></i> ACCOUNT LEDGER</span><h3>NO TRANSFERS YET.</h3></div></div>';
       return;
     }
     panel.replaceChildren();
-    snapshot.docs.forEach((item) => panel.append(createTransferCard(item.data(), item.id)));
+    transfers.forEach((transfer) => panel.append(createTransferCard(transfer, transfer.id)));
   } catch (error) {
     message.hidden = false;
     message.textContent = error.message || 'Transfers could not load.';
@@ -131,22 +112,32 @@ async function loadTransfers() {
 async function loadDiamondOrders() {
   panel.innerHTML = '<p class="loading-state">LOADING DIAMOND ORDERS…</p>';
   try {
-    const { db, collection, getDocs } = access.firebase;
-    const snapshot = await getDocs(collection(db, 'diamondOrders'));
-    const orders = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
-      .filter((order) => order.orderStatus !== 'completed')
-      .sort((left, right) => dateValue(right.createdAt) - dateValue(left.createdAt));
-    document.querySelector('[data-request-type="diamonds"] .tab-count').textContent = String(orders.length);
-    if (!orders.length) {
+    const { orders, legacyRequests } = await fetchAdminReceipts('diamonds');
+    const openOrders = orders.sort((left, right) => dateValue(right.createdAt) - dateValue(left.createdAt));
+    document.querySelector('[data-request-type="diamonds"] .tab-count').textContent = String(openOrders.length + legacyRequests.length);
+    if (!openOrders.length && !legacyRequests.length) {
       panel.innerHTML = '<div class="empty-market"><div><span class="stock-label"><i></i> TOP-UP QUEUE CLEAR</span><h3>NO OPEN DIAMOND ORDERS.</h3></div></div>';
       return;
     }
-    panel.replaceChildren(...orders.map(createDiamondOrderCard));
+    panel.replaceChildren(...legacyRequests.map((request) => createRequestCard(request.id, request)), ...openOrders.map(createDiamondOrderCard));
+    panel.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', () => handleAction(button.dataset.action, button.dataset.requestId)));
     panel.querySelectorAll('[data-diamond-action]').forEach((button) => button.addEventListener('click', () => handleDiamondAction(button.dataset.diamondAction, button.dataset.orderId, button)));
   } catch (error) {
     message.hidden = false;
     message.textContent = error.message || 'Diamond orders could not load.';
   }
+}
+
+async function fetchAdminReceipts(category, status) {
+  const url = new URL('/api/admin-receipts', location.origin);
+  url.searchParams.set('category', category);
+  if (status) url.searchParams.set('status', status);
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${await access.user.getIdToken()}` },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Receipts could not be loaded.');
+  return result;
 }
 
 function createDiamondOrderCard(order) {
@@ -161,7 +152,7 @@ function createDiamondOrderCard(order) {
   detail.innerHTML = `<div><b>${safeText(order.username || 'PLAYER')}</b><small>UID ${safeText(order.uidGame || '—')} · ${safeText(order.gameName || '—')}</small></div><span class="diamond-payment-badge ${paymentClass}">${paymentLabel}</span>`;
   const fields = document.createElement('dl');
   fields.className = 'detail-list diamond-order-details';
-  fields.innerHTML = `<div><dt>PACKAGE</dt><dd>${safeText(order.package || 'Free Fire diamonds')}</dd></div><div><dt>PRICE</dt><dd>₦${Number(order.price || 0).toLocaleString('en-NG')}</dd></div><div><dt>TIME</dt><dd>${formatDate(order.createdAt?.toDate?.())}</dd></div><div><dt>ORDER STATUS</dt><dd>${safeText(orderLabel)}</dd></div>`;
+  fields.innerHTML = `<div><dt>PACKAGE</dt><dd>${safeText(order.package || 'Free Fire diamonds')}</dd></div><div><dt>PRICE</dt><dd>₦${Number(order.price || 0).toLocaleString('en-NG')}</dd></div><div><dt>TIME</dt><dd>${formatDate(order.createdAt)}</dd></div><div><dt>ORDER STATUS</dt><dd>${safeText(orderLabel)}</dd></div>`;
   card.append(detail, fields);
   if (order.paymentMethod === 'wallet') {
     const note = document.createElement('p');
@@ -230,7 +221,7 @@ function createTopupCard(topup) {
   receipt.append(image);
   const details = document.createElement('div');
   details.className = 'topup-request-details';
-  details.innerHTML = `<b>${safeText(topup.username || 'PLAYER')}</b><strong>₦${Number(topup.amount || 0).toLocaleString('en-NG')}</strong><small>${formatDate(topup.createdAt?.toDate?.())}</small><span class="purchase-status status-${safeAttribute(topup.status)}">${safeText((topup.status || 'pending').toUpperCase())}</span>`;
+  details.innerHTML = `<b>${safeText(topup.username || 'PLAYER')}</b><strong>₦${Number(topup.amount || 0).toLocaleString('en-NG')}</strong><small>${formatDate(topup.createdAt)}</small><span class="purchase-status status-${safeAttribute(topup.status)}">${safeText((topup.status || 'pending').toUpperCase())}</span>`;
   if (topup.userRole === 'admin') details.querySelector('b').append(createVerifiedBadge());
   const row = document.createElement('div');
   row.className = 'topup-request-layout';
@@ -271,7 +262,7 @@ function createRequestCard(id, request) {
   card.className = 'request-card';
   card.dataset.id = id;
   const actions = request.status === 'pending' ? `<button class="form-button approve-button" data-action="approve" data-request-id="${safeAttribute(id)}">APPROVE</button><button class="form-button reject-button" data-action="reject" data-request-id="${safeAttribute(id)}">REJECT</button>` : request.status === 'approved' ? `<button class="form-button reject-button" data-action="cancel" data-request-id="${safeAttribute(id)}">CANCEL APPROVAL</button>` : '';
-  card.innerHTML = `<div class="request-user"><img src="${safeAttribute(request.userPhoto || '/logo.png')}" alt=""><div><b>${safeText(request.username || 'PLAYER')}</b><small>${safeText(request.accountType.toUpperCase())} · ${new Date(request.createdAt?.toDate?.() || Date.now()).toLocaleString()}</small></div></div><dl class="detail-list"><div><dt>AMOUNT</dt><dd>₦${Number(request.price || 0).toLocaleString('en-NG')}</dd></div>${request.uid ? `<div><dt>GAME UID</dt><dd>${safeText(request.uid)}</dd></div>` : ''}${request.gameName ? `<div><dt>GAME NAME</dt><dd>${safeText(request.gameName)}</dd></div>` : ''}</dl><div class="request-links"><a href="${safeAttribute(request.receiptURL)}" target="_blank" rel="noopener">VIEW RECEIPT ↗</a><a href="/pages/view.html?id=${encodeURIComponent(request.accountId)}&type=${encodeURIComponent(request.accountType)}" target="_blank" rel="noopener">VIEW LISTING ↗</a></div><div class="request-actions">${actions}</div>`;
+  card.innerHTML = `<div class="request-user"><img src="${safeAttribute(request.userPhoto || '/logo.png')}" alt=""><div><b>${safeText(request.username || 'PLAYER')}</b><small>${safeText((request.accountType || 'ACCOUNT').toUpperCase())} · ${formatDate(request.createdAt)}</small></div></div><dl class="detail-list"><div><dt>AMOUNT</dt><dd>₦${Number(request.price || 0).toLocaleString('en-NG')}</dd></div>${request.uid ? `<div><dt>GAME UID</dt><dd>${safeText(request.uid)}</dd></div>` : ''}${request.gameName ? `<div><dt>GAME NAME</dt><dd>${safeText(request.gameName)}</dd></div>` : ''}</dl><div class="request-links"><a href="${safeAttribute(request.receiptURL)}" target="_blank" rel="noopener">VIEW RECEIPT ↗</a><a href="/pages/view.html?id=${encodeURIComponent(request.accountId)}&type=${encodeURIComponent(request.accountType)}" target="_blank" rel="noopener">VIEW LISTING ↗</a></div><div class="request-actions">${actions}</div>`;
   if (request.userRole === 'admin') {
     card.querySelector('.request-user b').append(createVerifiedBadge());
     const photo = card.querySelector('.request-user img');
@@ -384,7 +375,7 @@ function createTransferCard(transfer, id) {
       <div><dt>TO</dt><dd>${safeText(transfer.toUsername || 'PLAYER')}</dd></div>
       <div><dt>AMOUNT</dt><dd>₦${Number(transfer.amount || 0).toLocaleString('en-NG')}</dd></div>
       <div><dt>FEE</dt><dd>₦${Number(transfer.fee || 0).toLocaleString('en-NG')}</dd></div>
-      <div><dt>TIME</dt><dd>${formatDate(transfer.createdAt?.toDate?.())}</dd></div>
+      <div><dt>TIME</dt><dd>${formatDate(transfer.createdAt)}</dd></div>
     </dl>
     <div class="request-links"><span class="purchase-status status-approved">${safeText((transfer.status || 'completed').toUpperCase())}</span></div>
   `;
@@ -394,4 +385,7 @@ function createTransferCard(transfer, id) {
 function safeText(value) { const node = document.createElement('span'); node.textContent = String(value ?? ''); return node.innerHTML; }
 function safeAttribute(value) { return safeText(value).replaceAll('"', '&quot;'); }
 function dateValue(value) { return typeof value?.toMillis === 'function' ? value.toMillis() : value instanceof Date ? value.getTime() : Date.parse(value || '') || 0; }
-function formatDate(value) { return value instanceof Date ? value.toLocaleString() : 'DATE PENDING'; }
+function formatDate(value) {
+  const date = typeof value?.toDate === 'function' ? value.toDate() : value instanceof Date ? value : value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : 'DATE PENDING';
+}
