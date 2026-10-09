@@ -59,7 +59,6 @@ function fillList(list, members, session) {
     photo.alt = '';
     photo.loading = 'lazy';
     avatar.append(photo);
-    if (member.role === 'admin') avatar.append(createVerifiedBadge({ avatar: true }));
     const identity = document.createElement('span');
     identity.className = 'member-identity';
     const username = document.createElement('span');

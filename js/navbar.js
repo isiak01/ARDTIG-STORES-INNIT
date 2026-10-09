@@ -172,7 +172,7 @@ function ensureRoleNavigation(nav) {
   const adminNav = document.createElement('div');
   adminNav.className = 'admin-nav-links';
   adminNav.hidden = true;
-  adminNav.innerHTML = '<a href="/pages/admin/analytics.html">ANALYTICS</a><a href="/pages/admin/requests.html">RECIPTS</a><a href="/pages/admin/post-freefire.html">POST ACCOUNTS</a><a href="/pages/admin/host-tournament.html">HOST TOURNAMENT</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button>';
+  adminNav.innerHTML = '<a href="/pages/admin/analytics.html">ANALYTICS</a><a href="/pages/admin/requests.html">RECEIPTS</a><a href="/pages/admin/post-freefire.html">POST ACCOUNTS</a><a href="/pages/admin/host-tournament.html">HOST TOURNAMENT</a><a href="/pages/members.html">MEMBERS</a><a href="/pages/leaderboard.html">LEADERBOARD</a><a href="/pages/help-a-friend.html">HELP A FRIEND</a><a href="/pages/tournaments.html">TOURNAMENTS</a><button class="icon-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme"><span aria-hidden="true">☼</span></button>';
   nav.insertBefore(adminNav, controls);
 }
 
