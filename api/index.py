@@ -406,17 +406,32 @@ def search_users_for_transfer():
         return jsonify(users=[]), 200
     try:
         db = database()
-        matches = []
+        matches = {}
         current_user = request.user_claims["uid"]
+
+        for username_snapshot in db.collection("usernames").stream():
+            username = str(username_snapshot.id).strip()
+            if not username or query_value.casefold() not in username.casefold():
+                continue
+            user_id = (username_snapshot.to_dict() or {}).get("uid")
+            if not isinstance(user_id, str) or user_id == current_user:
+                continue
+            profile_snapshot = db.collection("users").document(user_id).get()
+            if not profile_snapshot.exists:
+                continue
+            profile = profile_snapshot.to_dict() or {}
+            matches[user_id] = public_user_summary(user_id, profile)
+
         for profile_snapshot in db.collection("users").stream():
             profile = profile_snapshot.to_dict() or {}
             username = str(profile.get("username", "")).strip()
-            if not username or profile_snapshot.id == current_user:
+            if not username or profile_snapshot.id == current_user or profile_snapshot.id in matches:
                 continue
             if query_value.casefold() in username.casefold():
-                matches.append(public_user_summary(profile_snapshot.id, profile))
-        matches.sort(key=lambda item: item["username"].casefold())
-        return jsonify(users=matches[:12]), 200
+                matches[profile_snapshot.id] = public_user_summary(profile_snapshot.id, profile)
+
+        results = sorted(matches.values(), key=lambda item: item["username"].casefold())
+        return jsonify(users=results[:12]), 200
     except Exception:
         app.logger.exception("User search for transfers failed")
         return jsonify(error="Users could not be searched."), 500
@@ -608,6 +623,7 @@ def create_topup_request():
         topup_ref = db.collection("topupRequests").document()
         topup_ref.set({
             "uid": user_id,
+            "userId": user_id,
             "username": profile.get("username", "PLAYER"),
             "userRole": profile.get("role", "user"),
             "amount": int(amount),
@@ -644,7 +660,7 @@ def review_topup_request():
         if not topup_snapshot.exists:
             return jsonify(error="This top-up request could not be found."), 404
         topup = topup_snapshot.to_dict() or {}
-        user_id = topup.get("uid")
+        user_id = topup.get("uid") or topup.get("userId")
         amount = topup.get("amount")
         if not isinstance(user_id, str) or not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount <= 0:
             return jsonify(error="This top-up request has invalid details."), 400
