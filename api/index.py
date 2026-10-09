@@ -858,12 +858,12 @@ def register_tournament():
 
         @firestore.transactional
         def register(transaction):
-            tournament = transaction.get(tournament_ref)
+            tournament = tournament_ref.get(transaction=transaction)
             if not tournament.exists:
                 return "missing"
             if (tournament.to_dict() or {}).get("status") != "upcoming":
                 return "closed"
-            if transaction.get(registration_ref).exists:
+            if registration_ref.get(transaction=transaction).exists:
                 return "already"
             data = tournament.to_dict() or {}
             registrations = list(data.get("registeredUsers", []))
