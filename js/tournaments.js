@@ -67,7 +67,7 @@ function createTournamentCard(tournament) {
   details.className = 'tournament-details';
   [
     ['GAME', tournament.game], ['MAP', tournament.map], ['NUMBER OF PLAYERS NEEDED', tournament.playersNeeded],
-    ['MATCH TYPE', tournament.matchType], ['TEAM SIZE', tournament.teamSize], ['MATCH TIME', formatTime(tournament.matchTime)],
+    ['MATCH TYPE', tournament.matchType], ['TEAM SIZE', tournament.teamSize], ['MATCH TIME', tournament.matchTime],
     ['PRICE', tournament.price], ['PRICE TYPE', tournament.priceType], ['VOTES', tournament.votes || 0],
   ].forEach(([label, value]) => appendDetail(details, label, value));
   const room = document.createElement('div');

@@ -20,7 +20,7 @@
         <label class="admin-field"><span class="field-label">NUMBER OF PLAYERS NEEDED</span><input name="playersNeeded" type="number" min="1" step="1" required></label>
         <label class="admin-field"><span class="field-label">MATCH TYPE</span><input name="matchType" maxlength="60" placeholder="e.g. Battle Royale" required></label>
         <label class="admin-field"><span class="field-label">TEAM SIZE</span><select name="teamSize" required><option value="">Select team size</option><option>Solo</option><option>Duo</option><option>Squad</option></select></label>
-        <label class="admin-field"><span class="field-label">MATCH TIME</span><input name="matchTime" type="datetime-local" required></label>
+        <label class="admin-field"><span class="field-label">MATCH TIME</span><input name="matchTime" type="text" maxlength="60" placeholder="e.g. 7:30 PM WAT" autocomplete="off" required></label>
         <label class="admin-field"><span class="field-label">PRICE</span><input name="price" type="number" min="0" step="1" required></label>
         <label class="admin-field"><span class="field-label">PRICE TYPE</span><input name="priceType" maxlength="40" placeholder="e.g. Per team" required></label>
       </div>

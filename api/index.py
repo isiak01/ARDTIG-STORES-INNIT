@@ -736,9 +736,9 @@ def purchase_with_wallet():
 
         @firestore.transactional
         def charge_wallet(transaction):
-            profile_snapshot = transaction.get(profile_ref)
-            account_snapshot = transaction.get(account_ref)
-            secret_snapshot = transaction.get(secret_ref) if account_type != "diamonds" else None
+            profile_snapshot = profile_ref.get(transaction=transaction)
+            account_snapshot = account_ref.get(transaction=transaction)
+            secret_snapshot = secret_ref.get(transaction=transaction) if account_type != "diamonds" else None
             if not profile_snapshot.exists or not account_snapshot.exists:
                 return "missing"
             profile = profile_snapshot.to_dict() or {}

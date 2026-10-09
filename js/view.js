@@ -11,7 +11,7 @@ const loginDialog = document.querySelector('#login-dialog');
 const buyMethodDialog = document.createElement('dialog');
 buyMethodDialog.className = 'buy-method-dialog';
 buyMethodDialog.setAttribute('aria-labelledby', 'buy-method-title');
-buyMethodDialog.innerHTML = '<button class="dialog-close" type="button" aria-label="Close">×</button><p class="eyebrow">CHECKOUT</p><h2 id="buy-method-title">CHOOSE PAYMENT.</h2><a class="form-button wallet-method" data-wallet-method>PAY WITH ARDTIG BALANCE</a><a class="form-button secondary" data-manual-method>PAY WITH MANUAL TRANSFER</a>';
+buyMethodDialog.innerHTML = '<button class="dialog-close" type="button" aria-label="Close">×</button><p class="eyebrow">CHECKOUT</p><h2 id="buy-method-title">CHOOSE PAYMENT.</h2><div class="buy-method-actions"><a class="form-button wallet-method" data-wallet-method>PAY WITH ARDTIG BALANCE</a><a class="form-button secondary" data-manual-method>PAY WITH MANUAL TRANSFER</a></div>';
 document.body.append(buyMethodDialog);
 buyMethodDialog.querySelector('.dialog-close').addEventListener('click', () => buyMethodDialog.close());
 document.title = 'Account details | ARDTIG STORES';
